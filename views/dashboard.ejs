@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<div class="container">
+    <h1>Dashboard</h1>
+    <p>Merhaba, <%= first_name %> <%= last_name %>! Hoş geldiniz.</p>
+    <p>E-posta adresiniz: <%= email %></p>
+
+    <h2>BOM Dosyaları</h2>
+    <form action="/upload-bom" method="POST" enctype="multipart/form-data">
+        <label for="bomFile">Yeni BOM Dosyası Yükle:</label>
+        <input type="file" name="bomFile" id="bomFile" required>
+        <button type="submit">Yükle</button>
+    </form>
+
+    <h3>Yüklediğiniz BOM Dosyaları:</h3>
+    <% if (bomFilesData && bomFilesData.length > 0) { %>
+        <% bomFilesData.forEach(function(item) { %>
+            <div class="bom-file">
+                <!-- Veritabanından dönen sonuçlara doğrudan item ile erişiyoruz -->
+                <h4><%= item.file_name %> - Yüklenme Tarihi: <%= item.uploaded_at %></h4>
+                <p><a href="/download/<%= item.id %>">Dosyayı indir</a></p>
+                <!-- Diğer veri işlemleri buraya eklenebilir -->
+            </div>
+        <% }); %>
+    <% } else { %>
+        <p>Henüz bir BOM dosyası yüklemediniz.</p>
+    <% } %>
+</div>
+
+<%- include('partials/footer') %>
