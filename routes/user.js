@@ -42,13 +42,13 @@ const BLOCK_DURATION = 10 * 60 * 1000; // 10 dakika
 // Yeni bir kullanıcı kaydettikten sonra e-posta göndermek için fonksiyon
 function sendVerificationEmail(toEmail, verificationCode) {
     const mailOptions = {
-        from: 'apitronic06@gmail.com', // Sabit gönderici e-posta adresi
-        to: toEmail,                    // Alıcının e-posta adresi (kullanıcının girdiği e-posta)
+        from: 'apitronic06@gmail.com',
+        to: toEmail,
         subject: 'APItronic Hesap Doğrulama',
         text: `Hesabınızı doğrulamak için lütfen şu kodu kullanın: ${verificationCode}`
     };
 
-    transporter.sendMail(mailOptions, function (error, info) {
+    transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
             console.log(error);
         } else {
@@ -64,9 +64,11 @@ router.get('/', (req, res) => {
 
 // Kayıt sayfası
 router.get('/signup', (req, res) => {
-    res.render('signup');
+    res.render('signup', { errorMessage: null });  // Her zaman boş bir errorMessage gönderiyoruz
 });
 
+
+// Kayıt sayfası (POST)
 router.post('/signup', (req, res) => {
     const { first_name, last_name, email, password, confirm_password, phone_number } = req.body;
 
@@ -97,21 +99,88 @@ router.post('/signup', (req, res) => {
                     }
 
                     const userId = result.insertId;
+                    const verificationCode = crypto.randomBytes(3).toString('hex');
 
-                    // E-posta doğrulama yerine doğrudan dashboard'a yönlendiriyoruz
-                    db.query('SELECT * FROM users WHERE id = ?', [userId], (err, userResult) => {
+                    db.query('INSERT INTO email_verification (user_id, verification_code, verified, created_at) VALUES (?, ?, 0, NOW())', 
+                    [userId, verificationCode], (err) => {
                         if (err) {
                             console.error(err);
-                            return res.send('Bir hata oluştu. Lütfen tekrar deneyin.');
+                            return res.send('Doğrulama bilgileri veritabanına kaydedilirken bir hata oluştu.');
                         }
 
-                        const user = userResult[0];
-                        req.session.user = user;
-                        res.redirect('/dashboard');
+                        // E-posta gönder
+                        sendVerificationEmail(email, verificationCode);
+
+                        res.render('verify', { email: email, errorMessage: null });
                     });
                 });
             });
         }
+    });
+});
+
+
+
+router.post('/verify-email', (req, res) => {
+    const { email, verificationCode } = req.body;
+
+    db.query('SELECT u.id, ev.verification_code FROM users u JOIN email_verification ev ON u.id = ev.user_id WHERE u.email = ?', 
+    [email], (err, results) => {
+        if (err) {
+            console.error(err);
+            return res.send('Bir hata oluştu. Lütfen tekrar deneyin.');
+        }
+
+        if (results.length > 0) {
+            const userId = results[0].id;
+            const dbVerificationCode = results[0].verification_code;
+
+            // Doğrulama kodunu kontrol et
+            if (verificationCode === dbVerificationCode) {
+                // Kullanıcıyı doğrulandı olarak işaretle
+                db.query('UPDATE email_verification SET verified = 1, verification_code = NULL WHERE user_id = ?', [userId], (err) => {
+                    if (err) {
+                        console.error(err);
+                        return res.send('Doğrulama sırasında bir hata oluştu.');
+                    }
+
+                    // Doğrulama başarılı; kullanıcıyı dashboard'a yönlendir
+                    res.redirect('/dashboard');
+                });
+            } else {
+                // Yanlış kod; hata mesajı ile doğrulama sayfasına dön
+                res.render('verify', { email: email, errorMessage: 'Yanlış doğrulama kodu. Lütfen tekrar deneyin.' });
+            }
+        } else {
+            res.render('verify', { email: email, errorMessage: 'E-posta veya doğrulama kodu hatalı. Lütfen tekrar deneyin.' });
+        }
+    });
+});
+
+router.post('/resend-verification-code', (req, res) => {
+    const { email } = req.body;
+
+    db.query('SELECT u.id, ev.verified FROM users u JOIN email_verification ev ON u.id = ev.user_id WHERE u.email = ?', [email], (err, results) => {
+        if (err || results.length === 0) {
+            return res.render('signup', { errorMessage: 'Bu e-posta adresiyle bir hesap bulunamadı.' });
+        }
+
+        const user = results[0];
+
+        if (user.verified === 1) {
+            return res.render('signup', { errorMessage: 'Bu e-posta zaten doğrulanmış. Lütfen giriş yapın.' });
+        }
+
+        // Yeni doğrulama kodu oluştur ve gönder
+        const newVerificationCode = crypto.randomBytes(3).toString('hex');
+        db.query('UPDATE email_verification SET verification_code = ?, verified = 0 WHERE user_id = ?', [newVerificationCode, user.id], (err) => {
+            if (err) {
+                return res.send('Doğrulama kodu güncellenirken bir hata oluştu.');
+            }
+
+            sendVerificationEmail(email, newVerificationCode); // Yeni kodu gönder
+            res.render('verify', { email, successMessage: 'Yeni doğrulama kodu gönderildi. Lütfen kontrol edin.' });
+        });
     });
 });
 
@@ -124,28 +193,28 @@ router.get('/login', (req, res) => {
 router.post('/login', (req, res) => {
     const { email, password } = req.body;
 
-    db.query('SELECT * FROM users WHERE email = ?', [email], (err, results) => {
-        if (err) {
-            console.error(err);
-            return res.send('Bir hata oluştu. Lütfen tekrar deneyin.');
+    db.query('SELECT u.*, ev.verified FROM users u LEFT JOIN email_verification ev ON u.id = ev.user_id WHERE u.email = ?', [email], (err, results) => {
+        if (err || results.length === 0) {
+            return res.render('login', { errorMessage: 'Geçersiz kullanıcı adı veya şifre!' });
         }
 
-        if (results.length > 0) {
-            const user = results[0];
+        const user = results[0];
 
-            // Şifreyi doğrulama
-            bcrypt.compare(password, user.password, (err, isMatch) => {
-                if (err || !isMatch) {
-                    return res.render('login', { errorMessage: 'Geçersiz kullanıcı adı veya şifre!' });
-                }
-
-                // Şifre doğruysa kullanıcıyı oturumda sakla ve dashboard'a yönlendir
-                req.session.user = user;
-                res.redirect('/dashboard');
-            });
-        } else {
-            res.render('login', { errorMessage: 'Geçersiz kullanıcı adı veya şifre!' });
+        // Kullanıcının doğrulaması yapılmamışsa
+        if (!user.verified) {
+            return res.render('login', { errorMessage: 'E-posta adresiniz doğrulanmamış. Lütfen doğrulama işlemini tamamlayın.' });
         }
+
+        // Şifre doğrulaması
+        bcrypt.compare(password, user.password, (err, isMatch) => {
+            if (err || !isMatch) {
+                return res.render('login', { errorMessage: 'Geçersiz kullanıcı adı veya şifre!' });
+            }
+
+            // Başarılı giriş
+            req.session.user = user;
+            res.redirect('/dashboard');
+        });
     });
 });
 
@@ -212,6 +281,12 @@ router.get('/download/:id', (req, res) => {
 // Dosya yükleme rotası
 router.post('/upload-bom', upload.single('bomFile'), (req, res) => {
     const userId = req.session.user.id;
+
+    // Kullanıcı ID'si kontrolü
+    if (!userId) {
+        return res.send('Oturum açmış bir kullanıcı bulunamadı.');
+    }
+
     const fileName = req.file.filename;
     const filePath = req.file.path; // Yüklenen dosyanın yolunu al
 
@@ -229,9 +304,9 @@ router.post('/upload-bom', upload.single('bomFile'), (req, res) => {
                 console.error(err);
                 return res.send('BOM dosyası veritabanına kaydedilirken bir hata oluştu.');
             }
-
-            // Başarılı olduğunda dashboard sayfasına uploadSuccess ile yönlendirin
-            res.redirect('/dashboard?uploadSuccess=true');
+            // Başarıyla kaydedildiğinde dashboard'a yönlendir
+            res.redirect('/dashboard');
+           
         });
     });
 });
