@@ -3,29 +3,67 @@
 
 <div class="container">
     <h1>Dashboard</h1>
-    <p>Merhaba, <%= first_name %> <%= last_name %>! Hoş geldiniz.</p>
-    <p>E-posta adresiniz: <%= email %></p>
 
-    <h2>BOM Dosyaları</h2>
-    <form action="/upload-bom" method="POST" enctype="multipart/form-data">
-        <label for="bomFile">Yeni BOM Dosyası Yükle:</label>
-        <input type="file" name="bomFile" id="bomFile" required>
-        <button type="submit">Yükle</button>
-    </form>
-
-    <h3>Yüklediğiniz BOM Dosyaları:</h3>
-    <% if (bomFilesData && bomFilesData.length > 0) { %>
-        <% bomFilesData.forEach(function(item) { %>
-            <div class="bom-file">
-                <!-- Veritabanından dönen sonuçlara doğrudan item ile erişiyoruz -->
-                <h4><%= item.file_name %> - Yüklenme Tarihi: <%= item.uploaded_at %></h4>
-                <p><a href="/download/<%= item.id %>">Dosyayı indir</a></p>
-                <!-- Diğer veri işlemleri buraya eklenebilir -->
+    <!-- Yüklenmiş BOM dosyaları -->
+    <div class="uploaded-files">
+        <% bomFilesData.forEach(function(file) { %>
+            <div class="file-item">
+                <button class="delete-btn" onclick="deleteFile('<%= file.file.id %>')">&times;</button> <!-- Silme butonu -->
+                <h4>Dosya Adı: <%= file.file.file_name %></h4>
+                <p>Yüklenme Tarihi: <%= file.file.uploaded_at %></p>
+                <a href="/download/<%= file.file.id %>" class="btn btn-download">Dosyayı İndir</a>
             </div>
-        <% }); %>
-    <% } else { %>
-        <p>Henüz bir BOM dosyası yüklemediniz.</p>
-    <% } %>
+        <% }) %>
+    </div>
+
+    <!-- BOM Dosyası Yükleme Alanı -->
+    <div class="upload-section">
+        <h3>BOM Dosyası Yükle:</h3>
+        <form action="/upload-bom" method="POST" enctype="multipart/form-data">
+            <label for="bomFile">Dosya Seç</label>
+            <input type="file" id="bomFile" name="bomFile" required>
+            <p class="file-name">Dosya seçilmedi</p>
+            <button type="submit">Yükle</button>
+        </form>
+    </div>
 </div>
+
+<script>
+    // Dosya silme fonksiyonu
+    function deleteFile(fileId) {
+        if (confirm('Bu dosyayı silmek istediğinize emin misiniz?')) {
+            // Dosya silme isteği
+            fetch(`/delete-file/${fileId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Dosya başarıyla silindi.');
+                    window.location.reload(); // Sayfayı yeniden yükle
+                } else {
+                    alert('Dosya silinirken bir hata oluştu.');
+                }
+            })
+            .catch(error => {
+                console.error('Hata:', error);
+                alert('Dosya silinirken bir hata oluştu.');
+            });
+        }
+    }
+
+    // Seçilen dosyanın adını gösteren küçük bir JavaScript
+    const fileInput = document.getElementById('bomFile');
+    const fileNameDisplay = document.querySelector('.file-name');
+
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files.length > 0) {
+            fileNameDisplay.textContent = fileInput.files[0].name;
+        } else {
+            fileNameDisplay.textContent = 'Dosya seçilmedi';
+        }
+    });
+</script>
+
+
 
 <%- include('partials/footer') %>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-posta Doğrulama</title>
+</head>
+<body>
+    <h2>E-posta Doğrulama</h2>
+
+    <% if (errorMessage) { %>
+        <p style="color: red;"><%= errorMessage %></p>
+    <% } %>
+
+    <h3><%= email %> adresine gönderilen doğrulama kodunu girin:</h3>
+
+    <form action="/verify-email" method="POST">
+        <input type="hidden" name="email" value="<%= email %>">
+        <label for="verificationCode">Doğrulama Kodu:</label>
+        <input type="text" name="verificationCode" required>
+        <br>
+        <button type="submit">Doğrula</button>
+    </form>
+
+    <% if (remainingAttempts !== undefined && remainingAttempts < 3) { %>
+        <p>Kalan deneme hakkınız: <%= remainingAttempts %></p>
+    <% } %>
+
+    <% if (timeLeft > 0) { %>
+        <p>Bekleme süresi: <span id="time"><%= timeLeft %></span> saniye</p>
+    <% } %>
+
+    <script>
+        // Bekleme süresini güncelleyen geri sayım fonksiyonu
+        var timeLeft = <%= timeLeft %>;
+        if (timeLeft > 0) {
+            var timer = setInterval(function() {
+                timeLeft--;
+                document.getElementById('time').innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
