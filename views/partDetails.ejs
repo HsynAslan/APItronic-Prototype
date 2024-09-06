@@ -1,0 +1,107 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<div class="partDetails" id="part-container" data-partnumbers='<%= JSON.stringify(partNumbers || []) %>'>
+    <h1>Part Numaraları ve API Bilgileri</h1>
+    <table class="part-table">
+        <thead>
+            <tr>
+                <th>Part Numarası</th>
+                <th>Açıklama</th>
+                <th>Üretici</th>
+                <th>DigiKey Stok</th>
+                <th>DigiKey Lead Time</th>
+                <th>DigiKey Fiyat</th>
+                <th>Ürün Resmi</th>
+                <th>Ürün Linki</th>
+                <th>Datasheet Linki</th>
+                <th>Arrow Stok</th>
+                <th>Arrow Lead Time</th>
+                <th>Arrow Fiyat</th>
+                <th>Mouser Stok</th>
+                <th>Mouser Lead Time</th>
+                <th>Mouser Fiyat</th>
+                <th>Avnet Stok</th>
+                <th>Avnet Lead Time</th>
+                <th>Avnet Fiyat</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% digikeyResults.forEach(function(result) { %>
+                <tr>
+                    <!-- DigiKey Bilgileri -->
+                    <td><%= result.partNumber %></td>
+
+                    <% if (result.result && result.result.Product) { %>
+                        <td><%= result.result.Product.Description.ProductDescription %> - <%= result.result.Product.Description.DetailedDescription %></td>
+                        <td><%= result.result.Product.Manufacturer.Name %></td>
+                        <td><%= result.result.Product.QuantityAvailable %></td>
+                        <td><%= result.result.Product.ManufacturerLeadWeeks %> hafta</td>
+                        <td>$<%= result.result.Product.UnitPrice %></td>
+                        <td><img src="<%= result.result.Product.PhotoUrl %>" alt="Ürün Resmi" style="width: 50px; height: auto;"></td>
+                        <td><a href="<%= result.result.Product.ProductUrl %>" target="_blank">Ürün Sayfası</a></td>
+                        <td><a href="<%= result.result.Product.DatasheetUrl %>" target="_blank">Datasheet</a></td>
+                    <% } else { %>
+                        <td colspan="8">DigiKey verisi bulunamadı.</td>
+                    <% } %>
+
+                    <!-- Arrow API Bilgileri -->
+                    <td id="arrow-stock-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <td id="arrow-leadtime-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <td id="arrow-price-<%= result.partNumber %>">Veri yükleniyor...</td>
+
+                    <!-- Mouser API Bilgileri -->
+                    <td id="mouser-stock-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <td id="mouser-leadtime-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <td id="mouser-price-<%= result.partNumber %>">Veri yükleniyor...</td>
+
+                    <!-- Avnet API Bilgileri -->
+                    <td id="avnet-stock-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <td id="avnet-leadtime-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <td id="avnet-price-<%= result.partNumber %>">Veri yükleniyor...</td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const partContainer = document.getElementById('part-container');
+    const partNumbers = JSON.parse(partContainer.getAttribute('data-partnumbers'));
+
+    if (partNumbers.length === 0) {
+        console.log('Hiçbir part numarası bulunamadı.');
+    } else {
+        window.onload = function() {
+            fetch('/generate-token')
+                .then(response => response.json())
+                .then(tokenData => {
+                    partNumbers.forEach(partNumber => {
+                        // DigiKey API sorgusu
+                        fetch(`/api/digikey/partdetails/${partNumber}`, {
+                            headers: {
+                                'Authorization': `Bearer ${tokenData.token}`
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.Product) {
+                                document.getElementById(`digikey-${partNumber}`).innerHTML =
+                                    `Üretici: ${data.Product.Manufacturer.Name}, Stok: ${data.Product.QuantityAvailable}, ` +
+                                    `Lead Time: ${data.Product.ManufacturerLeadWeeks}, Fiyat: $${data.Product.UnitPrice}`;
+                            } else {
+                                document.getElementById(`digikey-${partNumber}`).innerHTML = 'Veri bulunamadı';
+                            }
+                        })
+                        .catch(error => {
+                            document.getElementById(`digikey-${partNumber}`).innerHTML = 'Veri bulunamadı';
+                            console.error('DigiKey API çağrısı başarısız:', error);
+                        });
+                    });
+                })
+                .catch(error => console.error('Token yenileme hatası:', error));
+        };
+    }
+</script>
+
+<%- include('partials/footer') %>

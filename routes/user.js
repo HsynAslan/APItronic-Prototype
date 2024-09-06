@@ -1,26 +1,72 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto'); // Rastgele doğrulama kodu oluşturmak için
-const db = require('../config/db'); // MySQL bağlantı dosyasını içeri aktarıyoruz
-const nodemailer = require('nodemailer'); // E-posta gönderimi için Nodemailer
+const crypto = require('crypto');
+const db = require('../config/db');
+const nodemailer = require('nodemailer');
 const router = express.Router();
-const multer = require('multer'); // Dosya yükleme için multer
-const fs = require('fs'); // Dosya işlemleri için fs
-const path = require('path'); // Dosya yolu işlemleri için path
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const { loadExcel, findPartNumberColumn } = require('../routes/excelParser'); // Excel işlemleri için ekledik
+const { getPartDetails } = require('../apis/digikeyAPI'); // DigiKey API çağrısı
+const { callDigiKeyAPI, regenerateToken } = require('../apis/digikeyAuth'); // regenerateToken ve callDigiKeyAPI fonksiyonlarını içe aktarıyoruz
+const axios = require('axios');
 
 // Yükleme klasörünü kontrol et ve yoksa oluştur
+let accessToken = null; // Token'ı bellekte tutuyoruz
+let tokenExpiry = null; // Token'ın süresini takip ediyoruz
+
+async function getToken() {
+    const currentTime = Date.now();
+
+    // Eğer token varsa ve süresi dolmamışsa, mevcut token'ı kullan
+    if (accessToken && tokenExpiry && currentTime < tokenExpiry) {
+        
+        return accessToken;
+    } else {
+        // Token yoksa veya süresi dolmuşsa, yeni token üret
+        console.log('Yeni token üretiliyor...');
+        accessToken = await regenerateToken(); // Token'ı al
+        tokenExpiry = currentTime + (60 * 60 * 1000); // Token'ın bir saat geçerli olduğunu varsayıyoruz
+        return accessToken;
+    }
+}
+
+// Token yenileme endpoint'i
+router.get('/generate-token', async (req, res) => {
+    try {
+        const token = await regenerateToken(); // Token yenileme fonksiyonunu çağırıyoruz
+        console.log("Yeni Token Üretildi:", token);  // Token'ı backend console'da logla
+        res.json({ token });
+    } catch (error) {
+        console.error('Token yenileme hatası:', error.message);
+        res.status(500).json({ error: 'Token yenileme başarısız oldu.' });
+    }
+});
+
 const uploadDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
+router.get('/api/digikey/partdetails/:partNumber', async (req, res) => {
+    const partNumber = req.params.partNumber;
+    try {
+        const token = await getToken(); // Mevcut token'ı al veya yenile
+        const result = await callDigiKeyAPI(partNumber, token); // API'yi çağır ve token'ı kullan
+        res.json(result);
+    } catch (error) {
+        console.error('DigiKey API çağrısı başarısız3:', error);
+        res.status(500).json({ error: 'DigiKey API hatası' });
+    }
+});
 
 // Dosya yükleme ayarları
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, uploadDir); // Dosyaların yükleneceği klasör
+        cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname); // Dosya adı
+        cb(null, Date.now() + '-' + file.originalname);
     }
 });
 
@@ -56,6 +102,84 @@ function sendVerificationEmail(toEmail, verificationCode) {
         }
     });
 }
+const { getDigiKeyPartDetails } = require('../apis/digikeyAPI');
+// Her part numarası için DigiKey'den detayları almak için route
+router.get('/digikey/partdetails/:partNumber', async (req, res) => {
+    const partNumber = req.params.partNumber;
+    try {
+        const partDetails = await callDigiKeyAPI(partNumber);
+        res.json(partDetails);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching part details' });
+    }
+});
+router.get('/part-details', async (req, res) => {
+    const partNumbers = JSON.parse(req.query.partNumbers); // Gelen part numaralarını al
+
+    try {
+        const token = await getToken(); // Mevcut token'ı al veya yenile
+        const digikeyResults = await Promise.all(partNumbers.map(async (partNumber) => {
+            try {
+                const result = await callDigiKeyAPI(partNumber, token); // API'yi çağır ve token'ı kullan
+                console.log(`Part numarası: ${partNumber}, Result:`, result);
+                return { partNumber, result };
+            } catch (error) {
+                console.error(`API çağrısı başarısız oldu: ${partNumber}`);
+                return { partNumber, result: null };
+            }
+        }));
+
+        res.render('partdetails', { partNumbers, digikeyResults });
+    } catch (error) {
+        console.error('Hata oluştu:', error.message);
+        res.render('partdetails', { partNumbers, digikeyResults: [] });
+    }
+});
+
+
+
+// Part numaralarını getirip console'da gösterecek yeni route
+// Part numaralarını getirip console'da gösterecek yeni route
+// Part numaralarını getirip console'da gösterecek yeni route
+router.get('/part-numbers/:fileId', async (req, res) => {
+    const fileId = req.params.fileId;
+    console.log("Part numaraları istek alındı, Dosya ID'si: " + fileId);
+
+    try {
+        const token = await getToken(); // Token'ı al
+        console.log("Token alındı:", token);  // Token'ı backend console'da logla
+
+        db.query('SELECT file_content FROM bom_files WHERE id = ?', [fileId], async (err, results) => {
+            if (err || results.length === 0) {
+                return res.status(404).json({ message: 'Dosya bulunamadı.' });
+            }
+
+            const fileBuffer = Buffer.from(results[0].file_content);
+            const excelData = loadExcel(fileBuffer); // Excel dosyasını yükleyin
+            const partNumberColumnIndex = findPartNumberColumn(excelData);
+
+            if (partNumberColumnIndex !== -1) {
+                const partNumbers = excelData.slice(1).map(row => row[partNumberColumnIndex]);
+                console.log("Alınan Part Numaraları:", partNumbers);  // Part numaralarını logla
+
+                // Part numaralarını client'a geri gönder
+                res.json({ partNumbers });
+            } else {
+                res.status(404).json({ message: 'Part numarası içeren sütun bulunamadı.' });
+            }
+        });
+    } catch (error) {
+        console.error('Hata oluştu:', error.message);
+        res.status(500).json({ message: 'Bir hata oluştu.' });
+    }
+});
+
+
+
+
+
+
+
 
 // Ana sayfa rotası
 router.get('/', (req, res) => {
@@ -220,7 +344,7 @@ router.post('/login', (req, res) => {
 
 // Dashboard sayfası rotası
 router.get('/dashboard', (req, res) => {
-    const uploadSuccess = req.query.uploadSuccess === 'true'; // Query parametreyi kontrol et
+    const uploadSuccess = req.query.uploadSuccess === 'true'; 
     if (req.session.user) {
         const userId = req.session.user.id;
 
@@ -230,7 +354,6 @@ router.get('/dashboard', (req, res) => {
                 return res.send('Bir hata oluştu.');
             }
 
-            // BOM dosyalarının içeriğini al
             const fileDataPromises = bomFiles.map((file) => {
                 return new Promise((resolve, reject) => {
                     db.query('SELECT * FROM bom_data WHERE bom_file_id = ?', [file.id], (err, data) => {
@@ -246,8 +369,8 @@ router.get('/dashboard', (req, res) => {
                         email: req.session.user.email,
                         first_name: req.session.user.first_name,
                         last_name: req.session.user.last_name,
-                        bomFilesData: results, // Yüklenen BOM dosyalarını ve içeriklerini gönder
-                        uploadSuccess // uploadSuccess değişkenini gönder
+                        bomFilesData: results,
+                        uploadSuccess 
                     });
                 })
                 .catch((err) => {
@@ -277,7 +400,6 @@ router.get('/download/:id', (req, res) => {
         res.send(fileContent);
     });
 });
-
 // Dosya yükleme rotası
 router.post('/upload-bom', upload.single('bomFile'), (req, res) => {
     const userId = req.session.user.id;
@@ -297,14 +419,14 @@ router.post('/upload-bom', upload.single('bomFile'), (req, res) => {
             return res.send('Dosya okunurken bir hata oluştu.');
         }
 
-        // Veritabanına dosya bilgilerini ve içeriğini kaydet
+        // veritabanı kontrolü
         db.query('INSERT INTO bom_files (user_id, file_name, file_content) VALUES (?, ?, ?)', 
         [userId, fileName, data], (err, result) => {
             if (err) {
                 console.error(err);
                 return res.send('BOM dosyası veritabanına kaydedilirken bir hata oluştu.');
             }
-            // Başarıyla kaydedildiğinde dashboard'a yönlendir
+            // başarılı
             res.redirect('/dashboard');
            
         });
@@ -331,12 +453,13 @@ router.get('/logout', (req, res) => {
     });
 });
 
-// Profil bilgilerini güncelleme
+
+// profil bilgisi güncelleme bölümü
 router.post('/update-profile', (req, res) => {
     const { first_name, last_name, email, phone_number } = req.body;
     const userId = req.session.user.id;
 
-    // Kullanıcı bilgilerini güncelleme sorgusu
+    // db sorgusu
     db.query('UPDATE users SET first_name = ?, last_name = ?, email = ?, phone_number = ? WHERE id = ?', 
     [first_name, last_name, email, phone_number, userId], (err, result) => {
         if (err) {
@@ -344,7 +467,7 @@ router.post('/update-profile', (req, res) => {
             return res.send('Profil güncellenirken bir hata oluştu.');
         }
 
-        // Kullanıcı oturumunu güncelle
+        //güncelleme
         req.session.user.first_name = first_name;
         req.session.user.last_name = last_name;
         req.session.user.email = email;

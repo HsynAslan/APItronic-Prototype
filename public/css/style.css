@@ -17,6 +17,15 @@ body {
     border-radius: 10px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
+.partDetails{
+    max-width: 100%;
+    max-height: 70vh; /* Ekranın %80'i kadar yüksekliğe sahip olacak */
+    overflow-y: auto; /* Yüksekliği aşarsa dikey kaydırma çubuğu gösterilecek */
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
 
 h1, h2 {
     color: #2c3e50;
@@ -79,7 +88,7 @@ input[type="text"] {
 }
 
 button {
-    width: 100%;
+    /* width: 100%; */
     padding: 10px;
     background-color: #27ae60;
     color: #fff;
@@ -296,6 +305,7 @@ header h1 {
 }
 
 .upload-section label {
+    width: max-content;
     background-color: #3498db;
     color: white;
     padding: 10px 20px;
@@ -359,4 +369,73 @@ header h1 {
     .homepage-content {
         padding: 20px;
     }
+}
+.flex-center{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    align-items: center;
+}
+.part-table {
+    width: 100%;
+    border-collapse: collapse;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.part-table th,
+.part-table td {
+    border: 1px solid #ddd;
+    padding: 15px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.part-table th {
+    background-color: #3498db;
+    color: white;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.part-table td {
+    background-color: #f9f9f9;
+}
+
+.part-table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+/* Mobil uyumluluk için responsive tablo */
+@media (max-width: 768px) {
+    .part-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .part-table th,
+    .part-table td {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Hover efekti ve geçiş */
+.part-table tr:hover {
+    background-color: #e9f7fe;
+    transition: background-color 0.3s ease;
+}
+
+/* API bilgi sütunları için stil */
+.api-info {
+    color: #7f8c8d;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Sütunlarda hover efekti */
+.part-table td:hover {
+    background-color: #e0f7fa;
+    transition: background-color 0.3s ease;
 }
