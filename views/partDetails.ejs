@@ -1,64 +1,205 @@
 <%- include('partials/header') %>
 <%- include('partials/navbar') %>
 
-<div class="partDetails" id="part-container" data-partnumbers='<%= JSON.stringify(partNumbers || []) %>'>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .partDetails {
+        margin: 0 auto;
+        max-width: 100%;
+        max-height: 70%;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+        text-align: center;
+        color: #333;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    th, td {
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: left;
+        font-size: 14px;
+    }
+
+    th {
+        background-color: #4CAF50;
+        color: white;
+        text-transform: uppercase;
+    }
+
+    td img {
+        display: block;
+        max-width: 80px;
+        height: auto;
+        margin: 0 auto;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f2f2f2;
+    }
+
+    .toggle-section {
+        cursor: pointer;
+        font-weight: bold;
+        color: #007bff;
+        text-decoration: underline;
+        text-align: center;
+    }
+
+    .hidden-section {
+        display: none;
+    }
+
+    /* Butonlar */
+    .btn-toggle {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        font-size: 14px;
+        margin: 10px 0;
+    }
+
+    .btn-toggle:hover {
+        background-color: #0056b3;
+    }
+
+    /* Aynı verileri temsil eden sütunlar için aynı renklerdeki stil */
+    .price-column {
+        background-color: #e8f5e9 !important; /* Hafif yeşil tonu */
+    }
+
+    .stock-column {
+        background-color: #fff3e0 !important; /* Hafif turuncu tonu */
+    }
+
+    .leadtime-column {
+        background-color: #e3f2fd !important; /* Hafif mavi tonu */
+    }
+
+    .packaging-column {
+        background-color: #f9fbe7 !important; /* Hafif sarımsı ton */
+    }
+
+    /* Genel düzen */
+    .part-number-column {
+        font-weight: bold;
+        color: #2c3e50;
+    }
+</style>
+
+<div id="part-container" data-partnumbers='<%= JSON.stringify(digikeyResults.map(result => result.partNumber)) %>'></div>
+
+<div class="partDetails">
     <h1>Part Numaraları ve API Bilgileri</h1>
+
+    <!-- Toggle DigiKey and Mouser buttons -->
+    <div class="toggle-section">
+        <button class="btn-toggle" onclick="toggleVisibility('digikey')">DigiKey Bilgilerini Göster/Gizle</button>
+        <button class="btn-toggle" onclick="toggleVisibility('mouser')">Mouser Bilgilerini Göster/Gizle</button>
+    </div>
+
     <table class="part-table">
         <thead>
             <tr>
+                <th>Ürün Fotoğrafı</th>
                 <th>Part Numarası</th>
-                <th>Açıklama</th>
-                <th>Üretici</th>
-                <th>DigiKey Stok</th>
-                <th>DigiKey Lead Time</th>
-                <th>DigiKey Fiyat</th>
-                <th>Ürün Resmi</th>
-                <th>Ürün Linki</th>
-                <th>Datasheet Linki</th>
-                <th>Arrow Stok</th>
-                <th>Arrow Lead Time</th>
-                <th>Arrow Fiyat</th>
-                <th>Mouser Stok</th>
-                <th>Mouser Lead Time</th>
-                <th>Mouser Fiyat</th>
-                <th>Avnet Stok</th>
-                <th>Avnet Lead Time</th>
-                <th>Avnet Fiyat</th>
+                <th class="digikey-section">DigiKey Açıklama</th>
+                <th class="digikey-section">DigiKey Üretici</th>
+                <th class=" digikey-section">DigiKey Stok</th>
+                <th class=" digikey-section">DigiKey Lead Time</th>
+                <th class=" digikey-section">DigiKey Fiyat</th>
+                <th class=" mouser-section">Mouser Stok</th>
+                <th class=" mouser-section">Mouser Lead Time</th>
+                <th class=" mouser-section">Mouser Fiyat</th>
+                <th class=" mouser-section">Mouser Ambalaj Türü</th>
+                <th class="mouser-section">Mouser Min. Sipariş Miktarı</th>
             </tr>
         </thead>
         <tbody>
-            <% digikeyResults.forEach(function(result) { %>
+            <% digikeyResults.forEach(function(digiKeyResult, index) { %>
                 <tr>
-                    <!-- DigiKey Bilgileri -->
-                    <td><%= result.partNumber %></td>
+                    <!-- Ürün Fotoğrafı -->
+                    <td>
+                        <% let imageUrl = null; %>
+                        <% if (digiKeyResult.result && digiKeyResult.result.Product && digiKeyResult.result.Product.PrimaryPhoto) { %>
+                            <% imageUrl = digiKeyResult.result.Product.PrimaryPhoto; %>
+                        <% } else if (
+                                mouserResults[index] && 
+                                mouserResults[index].result && 
+                                mouserResults[index].result.SearchResults &&
+                                mouserResults[index].result.SearchResults.Parts &&
+                                mouserResults[index].result.SearchResults.Parts[0] &&
+                                mouserResults[index].result.SearchResults.Parts[0].ImagePath
+                            ) { %>
+                            <% imageUrl = mouserResults[index].result.SearchResults.Parts[0].ImagePath; %>
+                        <% } %>
 
-                    <% if (result.result && result.result.Product) { %>
-                        <td><%= result.result.Product.Description.ProductDescription %> - <%= result.result.Product.Description.DetailedDescription %></td>
-                        <td><%= result.result.Product.Manufacturer.Name %></td>
-                        <td><%= result.result.Product.QuantityAvailable %></td>
-                        <td><%= result.result.Product.ManufacturerLeadWeeks %> hafta</td>
-                        <td>$<%= result.result.Product.UnitPrice %></td>
-                        <td><img src="<%= result.result.Product.PhotoUrl %>" alt="Ürün Resmi" style="width: 50px; height: auto;"></td>
-                        <td><a href="<%= result.result.Product.ProductUrl %>" target="_blank">Ürün Sayfası</a></td>
-                        <td><a href="<%= result.result.Product.DatasheetUrl %>" target="_blank">Datasheet</a></td>
+                        <% if (imageUrl) { %>
+                            <img src="<%= imageUrl %>" alt="Ürün Fotoğrafı">
+                        <% } else { %>
+                            <span>Fotoğraf Yok</span>
+                        <% } %>
+                    </td>
+
+                    <!-- Part Numarası -->
+                    <td class="part-number-column"><%= digiKeyResult.partNumber %></td>
+
+                    <!-- DigiKey Bilgileri -->
+                    <% if (digiKeyResult.result && digiKeyResult.result.Product) { %>
+                        <td class="digikey-section"><%= digiKeyResult.result.Product.Description.ProductDescription %> - <%= digiKeyResult.result.Product.Description.DetailedDescription %></td>
+                        <td class="digikey-section"><%= digiKeyResult.result.Product.Manufacturer.Name %></td>
+                        <td class="stock-column digikey-section"><%= digiKeyResult.result.Product.QuantityAvailable %></td>
+                        <td class="leadtime-column digikey-section"><%= digiKeyResult.result.Product.ManufacturerLeadWeeks %> hafta</td>
+                        <td class="price-column digikey-section">$<%= digiKeyResult.result.Product.UnitPrice %></td>
                     <% } else { %>
-                        <td colspan="8">DigiKey verisi bulunamadı.</td>
+                        <td class="digikey-section" colspan="5">DigiKey verisi bulunamadı.</td>
                     <% } %>
 
-                    <!-- Arrow API Bilgileri -->
-                    <td id="arrow-stock-<%= result.partNumber %>">Veri yükleniyor...</td>
-                    <td id="arrow-leadtime-<%= result.partNumber %>">Veri yükleniyor...</td>
-                    <td id="arrow-price-<%= result.partNumber %>">Veri yükleniyor...</td>
-
-                    <!-- Mouser API Bilgileri -->
-                    <td id="mouser-stock-<%= result.partNumber %>">Veri yükleniyor...</td>
-                    <td id="mouser-leadtime-<%= result.partNumber %>">Veri yükleniyor...</td>
-                    <td id="mouser-price-<%= result.partNumber %>">Veri yükleniyor...</td>
-
-                    <!-- Avnet API Bilgileri -->
-                    <td id="avnet-stock-<%= result.partNumber %>">Veri yükleniyor...</td>
-                    <td id="avnet-leadtime-<%= result.partNumber %>">Veri yükleniyor...</td>
-                    <td id="avnet-price-<%= result.partNumber %>">Veri yükleniyor...</td>
+                    <!-- Mouser Bilgileri -->
+                    <% const mouserResult = mouserResults[index]; %>
+                    <% if (
+                            mouserResult && 
+                            mouserResult.result && 
+                            mouserResult.result.SearchResults &&
+                            mouserResult.result.SearchResults.Parts &&
+                            mouserResult.result.SearchResults.Parts[0]
+                        ) { %>
+                        <td class="stock-column mouser-section" id="mouser-stock-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].Availability %></td>
+                        <td class="leadtime-column mouser-section" id="mouser-leadtime-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].LeadTime %> hafta</td>
+                        <td class="price-column mouser-section" id="mouser-price-<%= digiKeyResult.partNumber %>">
+                            <% if (mouserResult.result.SearchResults.Parts[0].PriceBreaks && mouserResult.result.SearchResults.Parts[0].PriceBreaks.length > 0) { %>
+                                $<%= mouserResult.result.SearchResults.Parts[0].PriceBreaks[0].Price %>
+                            <% } else { %>
+                                Fiyat Bilgisi Yok
+                            <% } %>
+                        </td>
+                        <td class="packaging-column mouser-section" id="mouser-packaging-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].Packaging || 'Ambalaj Bilgisi Yok' %></td>
+                        <td class="mouser-section" id="mouser-minorder-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].MinOrderQty || 'Min. Sipariş Yok' %></td>
+                    <% } else { %>
+                        <td class="mouser-section" colspan="5">Mouser verisi bulunamadı.</td>
+                    <% } %>
                 </tr>
             <% }) %>
         </tbody>
@@ -66,41 +207,15 @@
 </div>
 
 <script>
-    const partContainer = document.getElementById('part-container');
-    const partNumbers = JSON.parse(partContainer.getAttribute('data-partnumbers'));
-
-    if (partNumbers.length === 0) {
-        console.log('Hiçbir part numarası bulunamadı.');
-    } else {
-        window.onload = function() {
-            fetch('/generate-token')
-                .then(response => response.json())
-                .then(tokenData => {
-                    partNumbers.forEach(partNumber => {
-                        // DigiKey API sorgusu
-                        fetch(`/api/digikey/partdetails/${partNumber}`, {
-                            headers: {
-                                'Authorization': `Bearer ${tokenData.token}`
-                            }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.Product) {
-                                document.getElementById(`digikey-${partNumber}`).innerHTML =
-                                    `Üretici: ${data.Product.Manufacturer.Name}, Stok: ${data.Product.QuantityAvailable}, ` +
-                                    `Lead Time: ${data.Product.ManufacturerLeadWeeks}, Fiyat: $${data.Product.UnitPrice}`;
-                            } else {
-                                document.getElementById(`digikey-${partNumber}`).innerHTML = 'Veri bulunamadı';
-                            }
-                        })
-                        .catch(error => {
-                            document.getElementById(`digikey-${partNumber}`).innerHTML = 'Veri bulunamadı';
-                            console.error('DigiKey API çağrısı başarısız:', error);
-                        });
-                    });
-                })
-                .catch(error => console.error('Token yenileme hatası:', error));
-        };
+    function toggleVisibility(section) {
+        const elements = document.querySelectorAll(`.${section}-section`);
+        elements.forEach(element => {
+            if (element.style.display === 'none') {
+                element.style.display = 'table-cell';
+            } else {
+                element.style.display = 'none';
+            }
+        });
     }
 </script>
 

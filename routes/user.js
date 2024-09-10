@@ -11,6 +11,7 @@ const { loadExcel, findPartNumberColumn } = require('../routes/excelParser'); //
 const { getPartDetails } = require('../apis/digikeyAPI'); // DigiKey API çağrısı
 const { callDigiKeyAPI, regenerateToken } = require('../apis/digikeyAuth'); // regenerateToken ve callDigiKeyAPI fonksiyonlarını içe aktarıyoruz
 const axios = require('axios');
+const { callMouserAPI } = require('../apis/mouserAPI'); // Mouser API'yi ekledik
 
 // Yükleme klasörünü kontrol et ve yoksa oluştur
 let accessToken = null; // Token'ı bellekte tutuyoruz
@@ -19,15 +20,15 @@ let tokenExpiry = null; // Token'ın süresini takip ediyoruz
 async function getToken() {
     const currentTime = Date.now();
 
-    // Eğer token varsa ve süresi dolmamışsa, mevcut token'ı kullan
+    // token var ve süresi dolmamış
     if (accessToken && tokenExpiry && currentTime < tokenExpiry) {
         
         return accessToken;
     } else {
-        // Token yoksa veya süresi dolmuşsa, yeni token üret
+        // Token yok veya süresi dolmuş ---> yeni token üret
         console.log('Yeni token üretiliyor...');
-        accessToken = await regenerateToken(); // Token'ı al
-        tokenExpiry = currentTime + (60 * 60 * 1000); // Token'ın bir saat geçerli olduğunu varsayıyoruz
+        accessToken = await regenerateToken(); // Token alındı
+        tokenExpiry = currentTime + (10 * 60 * 1000); // 10 dk da 1 yenile
         return accessToken;
     }
 }
@@ -55,10 +56,12 @@ router.get('/api/digikey/partdetails/:partNumber', async (req, res) => {
         const result = await callDigiKeyAPI(partNumber, token); // API'yi çağır ve token'ı kullan
         res.json(result);
     } catch (error) {
-        console.error('DigiKey API çağrısı başarısız3:', error);
+        console.error('DigiKey API çağrısı başarısız3:');
         res.status(500).json({ error: 'DigiKey API hatası' });
     }
 });
+
+
 
 // Dosya yükleme ayarları
 const storage = multer.diskStorage({
@@ -118,24 +121,36 @@ router.get('/part-details', async (req, res) => {
 
     try {
         const token = await getToken(); // Mevcut token'ı al veya yenile
+
+        // DigiKey API'den veri çek
         const digikeyResults = await Promise.all(partNumbers.map(async (partNumber) => {
             try {
-                const result = await callDigiKeyAPI(partNumber, token); // API'yi çağır ve token'ı kullan
-                console.log(`Part numarası: ${partNumber}, Result:`, result);
+                const result = await callDigiKeyAPI(partNumber, token); // DigiKey API'yi çağır
                 return { partNumber, result };
             } catch (error) {
-                console.error(`API çağrısı başarısız oldu: ${partNumber}`);
+                console.error(`DigiKey API çağrısı başarısız oldu: ${partNumber}`);
                 return { partNumber, result: null };
             }
         }));
 
-        res.render('partdetails', { partNumbers, digikeyResults });
+        // Mouser API'den veri çek
+        const mouserResults = await Promise.all(partNumbers.map(async (partNumber) => {
+            try {
+                const result = await callMouserAPI(partNumber); // Mouser API'yi çağır
+                return { partNumber, result };
+            } catch (error) {
+                console.error(`Mouser API çağrısı başarısız oldu: ${partNumber}`);
+                return { partNumber, result: null };
+            }
+        }));
+
+        // Hem DigiKey hem de Mouser sonuçlarını render et
+        res.render('partdetails', { partNumbers, digikeyResults, mouserResults });
     } catch (error) {
         console.error('Hata oluştu:', error.message);
-        res.render('partdetails', { partNumbers, digikeyResults: [] });
+        res.render('partdetails', { partNumbers, digikeyResults: [], mouserResults: [] });
     }
 });
-
 
 
 // Part numaralarını getirip console'da gösterecek yeni route
@@ -176,7 +191,17 @@ router.get('/part-numbers/:fileId', async (req, res) => {
 
 
 
+router.post('/mouser-search-partnumber', async (req, res) => {
+    const partNumber = req.body.partNumber; // İstemciden gelen parça numarası
 
+    try {
+        const result = await callMouserAPI(partNumber); // Mouser API'yi çağır
+        res.json(result); // Veriyi client'a gönder
+    } catch (error) {
+        console.error(`Mouser API çağrısı başarısız oldu: ${partNumber}`, error.message);
+        res.status(500).json({ error: 'Mouser API hatası' });
+    }
+});
 
 
 
@@ -536,5 +561,9 @@ router.delete('/delete-file/:id', (req, res) => {
     });
 });
 
+// Geçersiz URL'ler için 404 middleware
+router.use((req, res, next) => {
+    res.status(404).sendFile(path.join(__dirname, '404.html'));
+});
 
 module.exports = router;

@@ -11,8 +11,12 @@ async function regenerateToken() {
         'Content-Type': 'application/x-www-form-urlencoded'
     };
     const body = qs.stringify({
-        'client_id': 'J1Dh1xnCwwGApOiC93h3lQKUe97G8Bp2',
-        'client_secret': 'fJ6PP4jrGdxhdNx0',
+        // J1Dh1xnCwwGApOiC93h3lQKUe97G8Bp2 -> hüseyin
+        // lNhPGByVlazXNfWpOD8mYG4kGVkD1cLf -> beyza hanım
+        'client_id': 'lNhPGByVlazXNfWpOD8mYG4kGVkD1cLf',
+        'client_secret': 'Koh6WLydkyNmq7HM',
+        // fJ6PP4jrGdxhdNx0 -> hüso
+        // Koh6WLydkyNmq7HM -> beyza hanım
         'grant_type': 'client_credentials'
     });
 
@@ -46,12 +50,12 @@ async function callDigiKeyAPI(partNumber, token) {
         const response = await axios.get(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${token}`,
-                'X-DIGIKEY-Client-Id': 'J1Dh1xnCwwGApOiC93h3lQKUe97G8Bp2'
+                'X-DIGIKEY-Client-Id': 'lNhPGByVlazXNfWpOD8mYG4kGVkD1cLf'
             }
         });
         return response.data;
     } catch (error) {
-        console.error('DigiKey API çağrısı başarısız2:', error.message);
+        console.error('DigiKey API çağrısı başarısız2:', error);
         throw error;
     }
 }
