@@ -266,84 +266,82 @@
     function toggleFavorite(partNumber) {
     const heartIcon = document.getElementById(`heart-${partNumber}`);
     if (heartIcon.classList.contains('fa-regular')) {
-        if (confirm("Bu ürünü favorilere eklemek istiyor musunuz?")) {
-            heartIcon.classList.remove('fa-regular');
-            heartIcon.classList.add('fa-solid');
-            // Favorilere ekleme (backend)
-            fetch('/add-to-favorites', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ partNumber:partNumber })
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      alert("Bu ürünü favorilere eklediniz.");
-                  } else {
-                      alert("Favorilere eklerken bir hata oluştu.");
-                  }
-              });
-        }
+        heartIcon.classList.remove('fa-regular');
+        heartIcon.classList.add('fa-solid');
+        heartIcon.style.color = '#FF0000';  // Renk değişimi
+        
+        // Favorilere ekleme (backend)
+        fetch('/add-to-favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumber: partNumber })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                
+              } else {
+                  alert("Favorilere eklerken bir hata oluştu.");
+              }
+          });
     } else {
-        if (confirm("Bu ürünü favorilerden çıkarmak istiyor musunuz?")) {
-            heartIcon.classList.remove('fa-solid');
-            heartIcon.classList.add('fa-regular');
-            // Favorilerden çıkarma (backend)
-            fetch('/remove-from-favorites', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ partNumber })
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      alert("Bu ürünü favorilerden çıkardınız.");
-                  } else {
-                      alert("Favorilerden çıkarırken bir hata oluştu.");
-                  }
-              });
-        }
+        heartIcon.classList.remove('fa-solid');
+        heartIcon.classList.add('fa-regular');
+        heartIcon.style.color = '';  // Varsayılan renge dön
+        // Favorilerden çıkarma (backend)
+        fetch('/remove-from-favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumber })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  alert("Bu ürünü favorilerden çıkardınız.");
+              } else {
+                  alert("Favorilerden çıkarırken bir hata oluştu.");
+              }
+          });
     }
 }
 
 function toggleWatchlist(partNumber) {
     const starIcon = document.getElementById(`star-${partNumber}`);
     if (starIcon.classList.contains('fa-regular')) {
-        if (confirm("Bu ürünü takibe almak istiyor musunuz?")) {
-            starIcon.classList.remove('fa-regular');
-            starIcon.classList.add('fa-solid');
-            // Takip listesine ekleme (backend)
-            fetch('/add-to-watchlist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ partNumber :partNumber})
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      alert("Bu ürünü takibe aldınız.");
-                  } else {
-                      alert("Takibe alırken bir hata oluştu.");
-                  }
-              });
-        }
+        starIcon.classList.remove('fa-regular');
+        starIcon.classList.add('fa-solid');
+        starIcon.style.color = '#FFD43B';  // Renk değişimi - Sarı
+        // Takip listesine ekleme (backend)
+        fetch('/add-to-watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumber: partNumber })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+               
+              } else {
+                  alert("Takibe alırken bir hata oluştu.");
+              }
+          });
     } else {
-        if (confirm("Bu ürünü takip listesinden çıkarmak istiyor musunuz?")) {
-            starIcon.classList.remove('fa-solid');
-            starIcon.classList.add('fa-regular');
-            // Takip listesinden çıkarma (backend)
-            fetch('/remove-from-watchlist', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ partNumber })
-            }).then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      alert("Bu ürünü takip listesinden çıkardınız.");
-                  } else {
-                      alert("Takip listesinden çıkarırken bir hata oluştu.");
-                  }
-              });
-        }
+        starIcon.classList.remove('fa-solid');
+        starIcon.classList.add('fa-regular');
+        starIcon.style.color = '';  // Varsayılan renge dön
+        // Takip listesinden çıkarma (backend)
+        fetch('/remove-from-watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumber })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  alert("Bu ürünü takip listesinden çıkardınız.");
+              } else {
+                  alert("Takip listesinden çıkarırken bir hata oluştu.");
+              }
+          });
     }
 }
+
 function formatStock(stock) {
     return stock ? `${stock.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} in stock` : 'Stok Bilgisi Yok';
 }

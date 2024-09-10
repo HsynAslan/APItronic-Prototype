@@ -13,6 +13,8 @@ const { callDigiKeyAPI, regenerateToken } = require('../apis/digikeyAuth'); // r
 const axios = require('axios');
 const { callMouserAPI } = require('../apis/mouserAPI'); // Mouser API'yi ekledik
 const { getArrowProductData } = require('../apis/arrowApi');
+const bodyParser = require('body-parser');
+router.use(bodyParser.json());
 router.use(express.json()); // JSON verileri alabilmek için gerekli middleware
 
 // Yükleme klasörünü kontrol et ve yoksa oluştur
@@ -504,6 +506,121 @@ router.get('/part-details', async (req, res) => {
 });
 
 
+async function getFavoriteProductDetails(partNumber) {
+    try {
+        const token = await getToken(); 
+        const digiKeyDetails = await callDigiKeyAPI(partNumber, token);
+        const mouserDetails = await callMouserAPI(partNumber);
+        
+        return {
+            digiKey: {
+                description: digiKeyDetails.Product.Description.ProductDescription || "Açıklama yok",
+                manufacturer: digiKeyDetails.Product.Manufacturer.Name || "Üretici yok",
+                quantityAvailable: digiKeyDetails.Product.QuantityAvailable || "Stok bilgisi yok",
+                leadTime: digiKeyDetails.Product.ManufacturerLeadWeeks ? digiKeyDetails.Product.ManufacturerLeadWeeks * 7 : "Lead time bilgisi yok",
+                unitPrice: digiKeyDetails.Product.UnitPrice || "Fiyat bilgisi yok",
+                packaging: digiKeyDetails.Product.Packaging || "Ambalaj bilgisi yok",
+                datasheets: digiKeyDetails.Product.Datasheets || [],
+                productURL: digiKeyDetails.Product.ProductUrl || "URL yok"
+            },
+            mouser: {
+                description: mouserDetails.SearchResults.Parts[0].Description || "Açıklama yok",
+                manufacturer: mouserDetails.SearchResults.Parts[0].Manufacturer || "Üretici yok",
+                quantityAvailable: mouserDetails.SearchResults.Parts[0].Availability || "Stok bilgisi yok",
+                leadTime: mouserDetails.SearchResults.Parts[0].LeadTime || "Lead time bilgisi yok",
+                unitPrice: mouserDetails.SearchResults.Parts[0].PriceBreaks ? mouserDetails.SearchResults.Parts[0].PriceBreaks[0].Price : "Fiyat bilgisi yok",
+                packaging: mouserDetails.SearchResults.Parts[0].Packaging || "Ambalaj bilgisi yok",
+                datasheets: mouserDetails.SearchResults.Parts[0].Datasheets || [],
+                productURL: mouserDetails.SearchResults.Parts[0].ProductDetailUrl || "URL yok"
+            }
+        };
+    } catch (error) {
+        console.error('Favori ürün detaylarını alırken hata oluştu:', error.message);
+        return null;
+    }
+}
+
+async function getWatchlistProductDetails(partNumber) {
+    try {
+        const token = await getToken();
+        const digiKeyDetails = await callDigiKeyAPI(partNumber, token);
+        const mouserDetails = await callMouserAPI(partNumber);
+        
+        return {
+            digiKey: {
+                description: digiKeyDetails.Product.Description.ProductDescription || "Açıklama yok",
+                manufacturer: digiKeyDetails.Product.Manufacturer.Name || "Üretici yok",
+                quantityAvailable: digiKeyDetails.Product.QuantityAvailable || "Stok bilgisi yok",
+                leadTime: digiKeyDetails.Product.ManufacturerLeadWeeks ? digiKeyDetails.Product.ManufacturerLeadWeeks * 7 : "Lead time bilgisi yok",
+                unitPrice: digiKeyDetails.Product.UnitPrice || "Fiyat bilgisi yok",
+                packaging: digiKeyDetails.Product.Packaging || "Ambalaj bilgisi yok",
+                datasheets: digiKeyDetails.Product.Datasheets || [],
+                productURL: digiKeyDetails.Product.ProductUrl || "URL yok"
+            },
+            mouser: {
+                description: mouserDetails.SearchResults.Parts[0].Description || "Açıklama yok",
+                manufacturer: mouserDetails.SearchResults.Parts[0].Manufacturer || "Üretici yok",
+                quantityAvailable: mouserDetails.SearchResults.Parts[0].Availability || "Stok bilgisi yok",
+                leadTime: mouserDetails.SearchResults.Parts[0].LeadTime || "Lead time bilgisi yok",
+                unitPrice: mouserDetails.SearchResults.Parts[0].PriceBreaks ? mouserDetails.SearchResults.Parts[0].PriceBreaks[0].Price : "Fiyat bilgisi yok",
+                packaging: mouserDetails.SearchResults.Parts[0].Packaging || "Ambalaj bilgisi yok",
+                datasheets: mouserDetails.SearchResults.Parts[0].Datasheets || [],
+                productURL: mouserDetails.SearchResults.Parts[0].ProductDetailUrl || "URL yok"
+            }
+        };
+    } catch (error) {
+        console.error('Takip edilen ürün detaylarını alırken hata oluştu:', error.message);
+        return null;
+    }
+}
+
+
+
+// Favori ürün detaylarını almak için API endpoint
+router.get('/get-favorite-details/:partNumber', async (req, res) => {
+   
+    const partNumber = req.params.partNumber; // URL'den partNumber alınır
+    const productDetails = await getFavoriteProductDetails(partNumber); // Ürün detaylarını al
+    res.json(productDetails); // Detayları JSON formatında döndür
+});
+
+// Takip edilen ürün detaylarını almak için API endpoint
+router.get('/get-watchlist-details', async (req, res) => {
+    const partNumber = req.query.partNumber; // Takip edilen ürün part numarasını al
+    const productDetails = await getWatchlistProductDetails(partNumber); // Ürün detaylarını al
+    res.json(productDetails); // Detayları JSON olarak geri gönder
+});
+
+// Favorites and Watchlist Page
+// Favoriler ve takip edilenler rotası
+router.get('/favorites-and-watchlist', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/login'); // Eğer kullanıcı oturum açmamışsa login sayfasına yönlendir
+    }
+
+    const userId = req.session.user.id;
+
+    // Favoriler ve takip edilenler sorguları
+    db.query('SELECT part_number FROM favorites WHERE user_id = ?', [userId], (err, favoriler) => {
+        if (err) {
+            console.error('Favoriler sorgusu hatası:', err);
+            return res.status(500).send('Favoriler alınamadı.');
+        }
+
+        db.query('SELECT part_number FROM watchlist WHERE user_id = ?', [userId], (err, takipEdilenler) => {
+            if (err) {
+                console.error('Takip edilenler sorgusu hatası:', err);
+                return res.status(500).send('Takip edilenler alınamadı.');
+            }
+
+            res.render('favorites-watchlist', {
+                favoritePartNumbers: favoriler.map(fav => fav.part_number),
+                watchlistPartNumbers: takipEdilenler.map(watch => watch.part_number),
+                data: {} // Daha fazla veri gerektiğinde eklenebilir
+            });
+        });
+    });
+});
 
 
 // profil bilgisi güncelleme bölümü
@@ -652,6 +769,34 @@ function formatStock(stock) {
 function formatLeadTime(weeks) {
     return weeks ? `${weeks * 7} gün` : 'Lead Time Bilgisi Yok'; // Haftayı gün'e çeviriyoruz
 }
+// Favori ürünü silme rotası
+router.post('/delete-from-favorites', (req, res) => {
+    const { partNumber } = req.body;
+    const userId = req.session.user.id;
+
+    db.query('DELETE FROM favorites WHERE user_id = ? AND part_number = ?', [userId, partNumber], (err, result) => {
+        if (err) {
+            console.error('Favorilerden silme hatası:', err);
+            return res.status(500).send('Favori silinirken bir hata oluştu.');
+        }
+        res.status(200).send({ success: true });
+    });
+});
+
+// Takip listesinden ürünü silme rotası
+router.post('/delete-from-watchlist', (req, res) => {
+    const { partNumber } = req.body;
+    const userId = req.session.user.id;
+
+    db.query('DELETE FROM watchlist WHERE user_id = ? AND part_number = ?', [userId, partNumber], (err, result) => {
+        if (err) {
+            console.error('Takip listesinden silme hatası:', err);
+            return res.status(500).send('Takip listesinden silinirken bir hata oluştu.');
+        }
+        res.status(200).send({ success: true });
+    });
+});
+
 
 
 // Geçersiz URL'ler için 404 middleware
