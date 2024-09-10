@@ -12,6 +12,8 @@ const { getPartDetails } = require('../apis/digikeyAPI'); // DigiKey API çağr�
 const { callDigiKeyAPI, regenerateToken } = require('../apis/digikeyAuth'); // regenerateToken ve callDigiKeyAPI fonksiyonlarını içe aktarıyoruz
 const axios = require('axios');
 const { callMouserAPI } = require('../apis/mouserAPI'); // Mouser API'yi ekledik
+const { getArrowProductData } = require('../apis/arrowApi');
+router.use(express.json()); // JSON verileri alabilmek için gerekli middleware
 
 // Yükleme klasörünü kontrol et ve yoksa oluştur
 let accessToken = null; // Token'ı bellekte tutuyoruz
@@ -114,41 +116,6 @@ router.get('/digikey/partdetails/:partNumber', async (req, res) => {
         res.json(partDetails);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching part details' });
-    }
-});
-router.get('/part-details', async (req, res) => {
-    const partNumbers = JSON.parse(req.query.partNumbers); // Gelen part numaralarını al
-
-    try {
-        const token = await getToken(); // Mevcut token'ı al veya yenile
-
-        // DigiKey API'den veri çek
-        const digikeyResults = await Promise.all(partNumbers.map(async (partNumber) => {
-            try {
-                const result = await callDigiKeyAPI(partNumber, token); // DigiKey API'yi çağır
-                return { partNumber, result };
-            } catch (error) {
-                console.error(`DigiKey API çağrısı başarısız oldu: ${partNumber}`);
-                return { partNumber, result: null };
-            }
-        }));
-
-        // Mouser API'den veri çek
-        const mouserResults = await Promise.all(partNumbers.map(async (partNumber) => {
-            try {
-                const result = await callMouserAPI(partNumber); // Mouser API'yi çağır
-                return { partNumber, result };
-            } catch (error) {
-                console.error(`Mouser API çağrısı başarısız oldu: ${partNumber}`);
-                return { partNumber, result: null };
-            }
-        }));
-
-        // Hem DigiKey hem de Mouser sonuçlarını render et
-        res.render('partdetails', { partNumbers, digikeyResults, mouserResults });
-    } catch (error) {
-        console.error('Hata oluştu:', error.message);
-        res.render('partdetails', { partNumbers, digikeyResults: [], mouserResults: [] });
     }
 });
 
@@ -477,6 +444,66 @@ router.get('/logout', (req, res) => {
         res.redirect('/');
     });
 });
+router.get('/part-details', async (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/login'); // Kullanıcı oturum açmamışsa giriş sayfasına yönlendir
+    }
+
+    const userId = req.session.user.id; // Oturum açmış kullanıcının ID'si
+    const partNumbers = JSON.parse(req.query.partNumbers); // Gelen part numaraları
+
+    try {
+        // Favori ürünleri ve takip edilen ürünleri veritabanından çek
+        db.query('SELECT part_number FROM favorites WHERE user_id = ?', [userId], (err, favoriler) => {
+            if (err) {
+                console.error('Favoriler sorgusu başarısız:', err);
+                return res.status(500).send('Favoriler alınamadı');
+            }
+
+            db.query('SELECT part_number FROM watchlist WHERE user_id = ?', [userId], async (err, takipEdilenler) => {
+                if (err) {
+                    console.error('Takip edilenler sorgusu başarısız:', err);
+                    return res.status(500).send('Takip edilenler alınamadı');
+                }
+
+                const token = await getToken(); // Token alınması
+                const digikeyResults = await Promise.all(partNumbers.map(async (partNumber) => {
+                    try {
+                        const result = await callDigiKeyAPI(partNumber, token); // DigiKey API
+                        return { partNumber, result };
+                    } catch (error) {
+                        console.error(`DigiKey API çağrısı başarısız oldu: ${partNumber}`);
+                        return { partNumber, result: null };
+                    }
+                }));
+
+                const mouserResults = await Promise.all(partNumbers.map(async (partNumber) => {
+                    try {
+                        const result = await callMouserAPI(partNumber); // Mouser API
+                        return { partNumber, result };
+                    } catch (error) {
+                        console.error(`Mouser API çağrısı başarısız oldu: ${partNumber}`);
+                        return { partNumber, result: null };
+                    }
+                }));
+
+                res.render('partdetails', {
+                    partNumbers,
+                    digikeyResults,
+                    mouserResults,
+                    arrowResults: [], // Placeholder for Arrow API sonuçları
+                    favoriler: favoriler.map(fav => fav.part_number),
+                    takipEdilenler: takipEdilenler.map(watch => watch.part_number)
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Hata oluştu:', error.message);
+        res.status(500).send('Bir hata oluştu');
+    }
+});
+
+
 
 
 // profil bilgisi güncelleme bölümü
@@ -560,6 +587,72 @@ router.delete('/delete-file/:id', (req, res) => {
         res.status(200).send('Dosya başarıyla silindi.');
     });
 });
+
+// Favorilere ekleme
+router.post('/add-to-favorites', (req, res) => {
+   
+    const { partNumber } = req.body;
+    const userId = req.session.user.id; // Oturum açmış kullanıcının ID'sini alın
+    
+    db.query('INSERT INTO favorites (user_id, part_number) VALUES (?, ?)', [userId, partNumber], (err) => {
+        if (err) {
+            console.error('Favorilere eklerken hata:', err);
+            return res.json({ success: false });
+        }
+        return res.json({ success: true });
+    });
+});
+
+// Favorilerden çıkarma
+router.post('/remove-from-favorites', (req, res) => {
+    const { partNumber } = req.body;
+    const userId = req.session.user.id;
+    
+    db.query('DELETE FROM favorites WHERE user_id = ? AND part_number = ?', [userId, partNumber], (err) => {
+        if (err) {
+            console.error('Favorilerden çıkarırken hata:', err);
+            return res.json({ success: false });
+        }
+        return res.json({ success: true });
+    });
+});
+
+// Takip listesine ekleme
+router.post('/add-to-watchlist', (req, res) => {
+    const { partNumber } = req.body;
+    const userId = req.session.user.id;
+
+    db.query('INSERT INTO watchlist (user_id, part_number) VALUES (?, ?)', [userId, partNumber], (err) => {
+        if (err) {
+            console.error('Takip listesine eklerken hata:', err);
+            return res.json({ success: false });
+        }
+        return res.json({ success: true });
+    });
+});
+
+// Takip listesinden çıkarma
+router.post('/remove-from-watchlist', (req, res) => {
+    const { partNumber } = req.body;
+    const userId = req.session.user.id;
+
+    db.query('DELETE FROM watchlist WHERE user_id = ? AND part_number = ?', [userId, partNumber], (err) => {
+        if (err) {
+            console.error('Takip listesinden çıkarırken hata:', err);
+            return res.json({ success: false });
+        }
+        return res.json({ success: true });
+    });
+});
+
+function formatStock(stock) {
+    return stock ? `${stock.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} in stock` : 'Stok Bilgisi Yok';
+}
+
+function formatLeadTime(weeks) {
+    return weeks ? `${weeks * 7} gün` : 'Lead Time Bilgisi Yok'; // Haftayı gün'e çeviriyoruz
+}
+
 
 // Geçersiz URL'ler için 404 middleware
 router.use((req, res, next) => {

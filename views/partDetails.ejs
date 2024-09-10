@@ -127,16 +127,19 @@
                 <th>Part Numarası</th>
                 <th class="digikey-section">DigiKey Açıklama</th>
                 <th class="digikey-section">DigiKey Üretici</th>
-                <th class=" digikey-section">DigiKey Stok</th>
-                <th class=" digikey-section">DigiKey Lead Time</th>
-                <th class=" digikey-section">DigiKey Fiyat</th>
-                <th class=" mouser-section">Mouser Stok</th>
-                <th class=" mouser-section">Mouser Lead Time</th>
-                <th class=" mouser-section">Mouser Fiyat</th>
-                <th class=" mouser-section">Mouser Ambalaj Türü</th>
-                <th class="mouser-section">Mouser Min. Sipariş Miktarı</th>
+                <th class="digikey-section">DigiKey Stok (in stock)</th>
+                <th class="digikey-section">DigiKey Lead Time (gün)</th>
+                <th class="digikey-section">DigiKey Fiyat</th>
+                <th class="digikey-section">DigiKey Ambalaj</th>
+                <th class="mouser-section">Mouser Üretici</th>
+                <th class="mouser-section">Mouser Üretici</th>
+                <th class="mouser-section">Mouser Lead Time (gün)</th>
+                <th class="mouser-section">Mouser Lead Time (gün)</th>
+                <th class="mouser-section">Mouser Fiyat</th>
+                <th class="arrow-section">Arrow Ambalaj</th>
             </tr>
         </thead>
+        
         <tbody>
             <% digikeyResults.forEach(function(digiKeyResult, index) { %>
                 <tr>
@@ -164,42 +167,84 @@
                     </td>
 
                     <!-- Part Numarası -->
-                    <td class="part-number-column"><%= digiKeyResult.partNumber %></td>
+                    <td class="part-number-column">
+                        <%= digiKeyResult.partNumber %>
+                        <div class="icon-container">
+                            <% if (favoriler.includes(digiKeyResult.partNumber)) { %>
+                                <i class="fa-solid fa-heart" id="heart-<%= digiKeyResult.partNumber %>" style="color: #FF0000;" title="Favorilerden çıkart" onclick="toggleFavorite('<%= digiKeyResult.partNumber %>')"></i>
+                            <% } else { %>
+                                <i class="fa-regular fa-heart" id="heart-<%= digiKeyResult.partNumber %>" title="Favorilere ekle" onclick="toggleFavorite('<%= digiKeyResult.partNumber %>')"></i>
+                            <% } %>
+                    
+                            <% if (takipEdilenler.includes(digiKeyResult.partNumber)) { %>
+                                <i class="fa-solid fa-star" id="star-<%= digiKeyResult.partNumber %>" style="color: #FFD43B;" title="Takipten çıkart" onclick="toggleWatchlist('<%= digiKeyResult.partNumber %>')"></i>
+                            <% } else { %>
+                                <i class="fa-regular fa-star" id="star-<%= digiKeyResult.partNumber %>" title="Takibe al" onclick="toggleWatchlist('<%= digiKeyResult.partNumber %>')"></i>
+                            <% } %>
+                        </div>
+                    </td>
+                    
+                    
+                    
 
                     <!-- DigiKey Bilgileri -->
-                    <% if (digiKeyResult.result && digiKeyResult.result.Product) { %>
-                        <td class="digikey-section"><%= digiKeyResult.result.Product.Description.ProductDescription %> - <%= digiKeyResult.result.Product.Description.DetailedDescription %></td>
-                        <td class="digikey-section"><%= digiKeyResult.result.Product.Manufacturer.Name %></td>
-                        <td class="stock-column digikey-section"><%= digiKeyResult.result.Product.QuantityAvailable %></td>
-                        <td class="leadtime-column digikey-section"><%= digiKeyResult.result.Product.ManufacturerLeadWeeks %> hafta</td>
-                        <td class="price-column digikey-section">$<%= digiKeyResult.result.Product.UnitPrice %></td>
-                    <% } else { %>
-                        <td class="digikey-section" colspan="5">DigiKey verisi bulunamadı.</td>
-                    <% } %>
+<% if (digiKeyResult.result && digiKeyResult.result.Product) { %>
+    <td class="digikey-section">
+        <a href="https://www.digikey.com/products/en?keywords=<%= digiKeyResult.partNumber %>" target="_blank">
+            <%= digiKeyResult.result.Product.Description.ProductDescription %> - <%= digiKeyResult.result.Product.Description.DetailedDescription %>
+        </a>
+    </td>
+    <td class="digikey-section"><%= digiKeyResult.result.Product.Manufacturer.Name %></td>
+    <td class="stock-column digikey-section"><%= digiKeyResult.result.Product.QuantityAvailable %> In Stock</td>
+    <td class="leadtime-column digikey-section">
+        <%= digiKeyResult.result.Product.ManufacturerLeadWeeks ? digiKeyResult.result.Product.ManufacturerLeadWeeks * 7 : 'Lead Time Bilgisi Yok' %> Days
+    </td>
+    
+    <td class="price-column digikey-section">$<%= digiKeyResult.result.Product.UnitPrice %></td>
+    <td class="packaging-column digikey-section"><%= digiKeyResult.result.Product.Packaging || 'Ambalaj Bilgisi Yok' %></td>
+<% } else { %>
+    <td class="digikey-section" colspan="6">DigiKey verisi bulunamadı.</td>
+<% } %>
 
-                    <!-- Mouser Bilgileri -->
-                    <% const mouserResult = mouserResults[index]; %>
-                    <% if (
-                            mouserResult && 
-                            mouserResult.result && 
-                            mouserResult.result.SearchResults &&
-                            mouserResult.result.SearchResults.Parts &&
-                            mouserResult.result.SearchResults.Parts[0]
-                        ) { %>
-                        <td class="stock-column mouser-section" id="mouser-stock-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].Availability %></td>
-                        <td class="leadtime-column mouser-section" id="mouser-leadtime-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].LeadTime %> hafta</td>
-                        <td class="price-column mouser-section" id="mouser-price-<%= digiKeyResult.partNumber %>">
-                            <% if (mouserResult.result.SearchResults.Parts[0].PriceBreaks && mouserResult.result.SearchResults.Parts[0].PriceBreaks.length > 0) { %>
-                                $<%= mouserResult.result.SearchResults.Parts[0].PriceBreaks[0].Price %>
-                            <% } else { %>
-                                Fiyat Bilgisi Yok
-                            <% } %>
-                        </td>
-                        <td class="packaging-column mouser-section" id="mouser-packaging-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].Packaging || 'Ambalaj Bilgisi Yok' %></td>
-                        <td class="mouser-section" id="mouser-minorder-<%= digiKeyResult.partNumber %>"><%= mouserResult.result.SearchResults.Parts[0].MinOrderQty || 'Min. Sipariş Yok' %></td>
-                    <% } else { %>
-                        <td class="mouser-section" colspan="5">Mouser verisi bulunamadı.</td>
-                    <% } %>
+<!-- Mouser Bilgileri -->
+<% const mouserResult = mouserResults[index]; %>
+<% if (mouserResult && mouserResult.result && mouserResult.result.SearchResults && mouserResult.result.SearchResults.Parts && mouserResult.result.SearchResults.Parts[0]) { %>
+    <td class="mouser-section">
+        <a href="https://www.mouser.com/Search/Refine.aspx?Keyword=<%= mouserResult.result.SearchResults.Parts[0].ManufacturerPartNumber %>" target="_blank">
+            <%= mouserResult.result.SearchResults.Parts[0].Description %>
+        </a>
+    </td>
+    <td class="mouser-section"><%= mouserResult.result.SearchResults.Parts[0].Manufacturer %></td>
+    <td class="stock-column mouser-section"><%= mouserResult.result.SearchResults.Parts[0].Availability %></td>
+    <td class="leadtime-column mouser-section"><%= mouserResult.result.SearchResults.Parts[0].LeadTime %></td>
+    <td class="price-column mouser-section">
+        <% if (mouserResult.result.SearchResults.Parts[0].PriceBreaks && mouserResult.result.SearchResults.Parts[0].PriceBreaks.length > 0) { %>
+            <%= mouserResult.result.SearchResults.Parts[0].PriceBreaks[0].Price %>
+        <% } else { %>
+            Fiyat Bilgisi Yok
+        <% } %>
+    </td>
+    <td class="packaging-column mouser-section"><%= mouserResult.result.SearchResults.Parts[0].Packaging || 'Ambalaj Bilgisi Yok' %></td>
+<% } else { %>
+    <td class="mouser-section" colspan="6">Mouser verisi bulunamadı.</td>
+<% } %>
+
+
+                    <% arrowResults.forEach(function(arrowResult, index) { %>
+                        <!-- Arrow Bilgileri -->
+                        <% if (arrowResult.result) { %>
+                            <tr>
+                                <td colspan="2">Arrow'dan Gelen Veriler</td>
+                                <td class="stock-column arrow-section"><%= arrowResult.result.stock %></td>
+                                <td class="leadtime-column arrow-section"><%= arrowResult.result.leadTime %> hafta</td>
+                                <td class="price-column arrow-section">$<%= arrowResult.result.price %></td>
+                            </tr>
+                        <% } else { %>
+                            <td class="arrow-section" colspan="5">Arrow verisi bulunamadı.</td>
+                        <% } %>
+                    <% }) %>
+                    
+
                 </tr>
             <% }) %>
         </tbody>
@@ -217,6 +262,96 @@
             }
         });
     }
-</script>
 
+    function toggleFavorite(partNumber) {
+    const heartIcon = document.getElementById(`heart-${partNumber}`);
+    if (heartIcon.classList.contains('fa-regular')) {
+        if (confirm("Bu ürünü favorilere eklemek istiyor musunuz?")) {
+            heartIcon.classList.remove('fa-regular');
+            heartIcon.classList.add('fa-solid');
+            // Favorilere ekleme (backend)
+            fetch('/add-to-favorites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ partNumber:partNumber })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      alert("Bu ürünü favorilere eklediniz.");
+                  } else {
+                      alert("Favorilere eklerken bir hata oluştu.");
+                  }
+              });
+        }
+    } else {
+        if (confirm("Bu ürünü favorilerden çıkarmak istiyor musunuz?")) {
+            heartIcon.classList.remove('fa-solid');
+            heartIcon.classList.add('fa-regular');
+            // Favorilerden çıkarma (backend)
+            fetch('/remove-from-favorites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ partNumber })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      alert("Bu ürünü favorilerden çıkardınız.");
+                  } else {
+                      alert("Favorilerden çıkarırken bir hata oluştu.");
+                  }
+              });
+        }
+    }
+}
+
+function toggleWatchlist(partNumber) {
+    const starIcon = document.getElementById(`star-${partNumber}`);
+    if (starIcon.classList.contains('fa-regular')) {
+        if (confirm("Bu ürünü takibe almak istiyor musunuz?")) {
+            starIcon.classList.remove('fa-regular');
+            starIcon.classList.add('fa-solid');
+            // Takip listesine ekleme (backend)
+            fetch('/add-to-watchlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ partNumber :partNumber})
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      alert("Bu ürünü takibe aldınız.");
+                  } else {
+                      alert("Takibe alırken bir hata oluştu.");
+                  }
+              });
+        }
+    } else {
+        if (confirm("Bu ürünü takip listesinden çıkarmak istiyor musunuz?")) {
+            starIcon.classList.remove('fa-solid');
+            starIcon.classList.add('fa-regular');
+            // Takip listesinden çıkarma (backend)
+            fetch('/remove-from-watchlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ partNumber })
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      alert("Bu ürünü takip listesinden çıkardınız.");
+                  } else {
+                      alert("Takip listesinden çıkarırken bir hata oluştu.");
+                  }
+              });
+        }
+    }
+}
+function formatStock(stock) {
+    return stock ? `${stock.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")} in stock` : 'Stok Bilgisi Yok';
+}
+function formatLeadTime(weeks) {
+    return weeks ? `${weeks * 7} gün` : 'Lead Time Bilgisi Yok'; // Haftayı gün'e çeviriyoruz
+}
+
+
+</script>
+<script src="https://kit.fontawesome.com/d497048b92.js" crossorigin="anonymous"></script>
 <%- include('partials/footer') %>

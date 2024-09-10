@@ -440,3 +440,23 @@ header h1 {
     background-color: #e0f7fa;
     transition: background-color 0.3s ease;
 }
+
+.part-number-column {
+    position: relative;
+    padding-right: 40px; /* İkona yer açmak için sağa padding ekleyin */
+}
+
+.icon-container {
+    margin-right: 1vh;
+    margin-bottom: 1vh;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    display: flex;
+    gap: 5px; /* İkonlar arasındaki boşluk */
+}
+
+.icon-container i {
+    font-size: 24px; /* İkon boyutunu büyüt */
+    cursor: pointer;
+}
