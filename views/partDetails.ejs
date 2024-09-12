@@ -118,6 +118,8 @@
     <div class="toggle-section">
         <button class="btn-toggle" onclick="toggleVisibility('digikey')">DigiKey Bilgilerini Göster/Gizle</button>
         <button class="btn-toggle" onclick="toggleVisibility('mouser')">Mouser Bilgilerini Göster/Gizle</button>
+        <button class="btn-toggle" onclick="toggleVisibility('element14')">Element14 Bilgilerini Göster/Gizle</button>
+
     </div>
 
     <table class="part-table">
@@ -137,6 +139,11 @@
                 <th class="mouser-section">Mouser Lead Time (gün)</th>
                 <th class="mouser-section">Mouser Fiyat</th>
                 <th class="arrow-section">Arrow Ambalaj</th>
+                <th class="element14-section">Element14 Açıklama</th>
+    <th class="element14-section">Element14 Üretici</th>
+<th class="element14-section">Element14 Stok</th>
+<th class="element14-section">Element14 Fiyat</th>
+
             </tr>
         </thead>
         
@@ -230,6 +237,22 @@
 <% } %>
 
 
+<% const element14Result = element14Results[index]; %>
+<% if (element14Result && element14Result.result && element14Result.result.products && element14Result.result.products[0]) { %>
+    <td class="element14-section">
+        <a href="https://au.element14.com/product/<%= element14Result.result.products[0].sku %>" target="_blank">
+            <%= element14Result.result.products[0].description %>
+        </a>
+    </td>
+    <td class="element14-section"><%= element14Result.result.products[0].manufacturer.name %></td>
+    <td class="stock-column element14-section"><%= element14Result.result.products[0].stock %></td>
+    <td class="price-column element14-section">$<%= element14Result.result.products[0].prices[0].cost %></td>
+<% } else { %>
+    <td class="element14-section" colspan="4">Element14 verisi bulunamadı.</td>
+<% } %>
+
+
+
                     <% arrowResults.forEach(function(arrowResult, index) { %>
                         <!-- Arrow Bilgileri -->
                         <% if (arrowResult.result) { %>
@@ -253,15 +276,16 @@
 
 <script>
     function toggleVisibility(section) {
-        const elements = document.querySelectorAll(`.${section}-section`);
-        elements.forEach(element => {
-            if (element.style.display === 'none') {
-                element.style.display = 'table-cell';
-            } else {
-                element.style.display = 'none';
-            }
-        });
-    }
+    const elements = document.querySelectorAll(`.${section}-section`);
+    elements.forEach(element => {
+        if (element.style.display === 'none') {
+            element.style.display = 'table-cell';
+        } else {
+            element.style.display = 'none';
+        }
+    });
+}
+
 
     function toggleFavorite(partNumber) {
     const heartIcon = document.getElementById(`heart-${partNumber}`);

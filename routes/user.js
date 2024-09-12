@@ -16,6 +16,7 @@ const { getArrowProductData } = require('../apis/arrowApi');
 const bodyParser = require('body-parser');
 router.use(bodyParser.json());
 router.use(express.json()); // JSON verileri alabilmek için gerekli middleware
+const { callFarnellAPI } = require('../apis/element14'); // Element14 API'yi içe aktar
 
 // Yükleme klasörünü kontrol et ve yoksa oluştur
 let accessToken = null; // Token'ı bellekte tutuyoruz
@@ -489,10 +490,24 @@ router.get('/part-details', async (req, res) => {
                     }
                 }));
 
+                // Element14 API Çağrısı
+                const element14Results = await Promise.all(partNumbers.map(async (partNumber) => {
+                    try {
+                        const result = await callFarnellAPI(partNumber); // Element14 API
+                        return { partNumber, result };
+                    } catch (error) {
+                        console.error(`Element14 API çağrısı başarısız oldu: ${partNumber}`);
+                        console.log("error: "+error);
+                        console.log("error2: "+error.message);
+                        return { partNumber, result: null };
+                    }
+                }));
+
                 res.render('partdetails', {
                     partNumbers,
                     digikeyResults,
                     mouserResults,
+                    element14Results, // Element14 sonuçları eklendi
                     arrowResults: [], // Placeholder for Arrow API sonuçları
                     favoriler: favoriler.map(fav => fav.part_number),
                     takipEdilenler: takipEdilenler.map(watch => watch.part_number)
@@ -504,6 +519,7 @@ router.get('/part-details', async (req, res) => {
         res.status(500).send('Bir hata oluştu');
     }
 });
+
 
 
 async function getFavoriteProductDetails(partNumber) {
