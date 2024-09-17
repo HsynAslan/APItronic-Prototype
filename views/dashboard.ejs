@@ -50,6 +50,7 @@
 <script>
     // Parse işlemi için part numaralarını almak
     function redirectToPartDetails(fileId) {
+<<<<<<< HEAD
     console.log("Dosya ID'si: " + fileId);
 
     // Token'ı kontrol et veya yenile
@@ -86,6 +87,48 @@
         })
         .catch(error => console.error('Token yenileme hatası:', error));
 }
+=======
+        console.log("Dosya ID'si: " + fileId);
+
+        // Token'ı kontrol et veya yenile
+        fetch('/generate-token')
+            .then(response => response.json())
+            .then(tokenData => {
+                console.log('Yeni Token Alındı:', tokenData.token);  // Token'ı console'a logla
+
+                // Part numaralarını çek ve detay sayfasına yönlendir
+                fetch(`/part-numbers/${fileId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Part numaraları alınırken hata oluştu');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.partNumbers && data.partNumbers.length > 0) {
+                            const validPartNumbers = data.partNumbers.filter(part => part !== null);
+
+                            if (validPartNumbers.length > 0) {
+                                const partNumbersQuery = encodeURIComponent(JSON.stringify(validPartNumbers));
+                                console.log("Geçerli Part Numaraları:", validPartNumbers);  // Part numaralarını logla
+                                // Part numaralarını part-details sayfasına yönlendiriyoruz
+                                window.location.href = `/part-details?partNumbers=${partNumbersQuery}`;
+                                console.log('Yeni Token Alındı:', tokenData.token);  // Token'ı console'a logla
+                                console.log("Geçerli Part Numaraları:", validPartNumbers);  // Part numaralarını logla
+
+
+                            } else {
+                                alert('Geçerli part numaraları bulunamadı.');
+                            }
+                        } else {
+                            alert('Part numaraları bulunamadı.');
+                        }
+                    })
+                    .catch(error => console.error('Part numaraları alınırken hata oluştu:', error));
+            })
+            .catch(error => console.error('Token yenileme hatası:', error));
+    }
+>>>>>>> 5f01ff9345f94810af93462e0c1595d7a96d9fa4
 
     // Dosya silme işlemi
     function deleteFile(fileId) {
