@@ -1,0 +1,22 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<div class="container login-container">
+    <h2>Giriş Yap</h2>
+    
+    <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+        <p style="color: red;"><%= errorMessage %></p>
+    <% } %>
+
+    <form action="/login" method="POST" class="login-form">
+        <label for="email">E-posta:</label>
+        <input type="email" name="email" required><br>
+
+        <label for="password">Şifre:</label>
+        <input type="password" name="password" required><br>
+
+        <button type="submit" class="btn login-btn">Giriş Yap</button>
+    </form>
+</div>
+
+<%- include('partials/footer') %>

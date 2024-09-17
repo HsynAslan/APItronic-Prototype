@@ -1,0 +1,124 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<div class="container">
+    <h1>Dashboard</h1>
+
+    <!-- Yüklenmiş BOM dosyaları -->
+    <div class="uploaded-files">
+        <% if (bomFilesData.length > 0) { %>
+            <% bomFilesData.forEach(function(file) { %>
+                <div class="file-item">
+                    <div class="file-info">
+                        <h4>Dosya Adı: <%= file.file.file_name %></h4>
+                        <p>Yüklenme Tarihi: <%= file.file.uploaded_at %></p>
+                    </div>
+                    <div class="file-actions">
+                        <!-- Dosya İndirme -->
+                        <a href="/download/<%= file.file.id %>" class="btn btn-download">Dosyayı İndir</a>
+                        
+                        <!-- Parse Butonu -->
+                        <button class="btn" onclick="redirectToPartDetails('<%= file.file.id %>')">Parse</button>
+                        
+                        <!-- Dosya Silme -->
+                        <button class="delete-btn" onclick="deleteFile('<%= file.file.id %>')"><i class="fa-solid fa-trash-alt"></i> Sil</button>
+                    </div>
+                </div>
+            <% }) %>
+        <% } else { %>
+            <p>Henüz herhangi bir BOM dosyası yüklenmedi.</p>
+        <% } %>
+    </div>
+
+    <!-- BOM Dosyası Yükleme Alanı -->
+    <div class="upload-section">
+        <h3>BOM Dosyası Yükle:</h3>
+        <form action="/upload-bom" method="POST" enctype="multipart/form-data">
+            <div class="flex-center">
+                <label for="bomFile">Dosya Seç</label>
+            </div>
+            <input type="file" id="bomFile" name="bomFile" required>
+            <p class="file-name">Dosya seçilmedi</p>
+            <div class="flex-center">
+                <button type="submit">Yükle</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://kit.fontawesome.com/d497048b92.js" crossorigin="anonymous"></script>
+<script>
+    // Parse işlemi için part numaralarını almak
+    function redirectToPartDetails(fileId) {
+    console.log("Dosya ID'si: " + fileId);
+
+    // Token'ı kontrol et veya yenile
+    fetch('/generate-token')
+        .then(response => response.json())
+        .then(tokenData => {
+            console.log('Yeni Token Alındı:', tokenData.token);  // Token'ı console'a logla
+
+            // Part numaralarını çek ve detay sayfasına yönlendir
+            fetch(`/part-numbers/${fileId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Part numaraları alınırken hata oluştu');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.partNumbers && data.partNumbers.length > 0) {
+                        const validPartNumbers = data.partNumbers.filter(part => part !== null);
+
+                        if (validPartNumbers.length > 0) {
+                            const partNumbersQuery = encodeURIComponent(JSON.stringify(validPartNumbers));
+                            console.log("Geçerli Part Numaraları:", validPartNumbers);  // Part numaralarını logla
+                            // Part numaraları ve fileId'yi part-details sayfasına yönlendiriyoruz
+                            window.location.href = `/part-details?fileId=${fileId}&partNumbers=${partNumbersQuery}`;
+                        } else {
+                            alert('Geçerli part numaraları bulunamadı.');
+                        }
+                    } else {
+                        alert('Part numaraları bulunamadı.');
+                    }
+                })
+                .catch(error => console.error('Part numaraları alınırken hata oluştu:', error));
+        })
+        .catch(error => console.error('Token yenileme hatası:', error));
+}
+
+    // Dosya silme işlemi
+    function deleteFile(fileId) {
+        if (confirm('Bu dosyayı silmek istediğinize emin misiniz?')) {
+            fetch(`/delete-file/${fileId}`, { method: 'DELETE' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Dosya başarıyla silindi.');
+                        window.location.reload();
+                    } else {
+                        alert('Dosya silinirken bir hata oluştu.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Dosya silme hatası:', error);
+                    alert('Dosya silinirken bir hata oluştu.');
+                });
+        }
+    }
+
+    // Yüklenen dosyanın adını gösterme
+    const fileInput = document.getElementById('bomFile');
+    const fileNameDisplay = document.querySelector('.file-name');
+    
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files.length > 0) {
+            fileNameDisplay.textContent = fileInput.files[0].name;
+        } else {
+            fileNameDisplay.textContent = 'Dosya seçilmedi';
+        }
+    });
+</script>
+
+
+
+<%- include('partials/footer') %>

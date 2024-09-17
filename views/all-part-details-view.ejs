@@ -1,0 +1,190 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        padding: 20px;
+    }
+
+    .details-container {
+        margin: 0 auto;
+        max-width: 800px;
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+
+    th {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .price-column {
+        background-color: #e8f5e9;
+    }
+
+    .leadtime-column {
+        background-color: #e3f2fd;
+    }
+
+    .missing-items {
+        color: red;
+        font-weight: bold;
+    }
+
+    .bold {
+        font-weight: bold;
+    }
+
+    .summary {
+        margin-top: 20px;
+    }
+
+</style>
+
+<div class="container">
+    <h1>Part Numaraları ve Detaylar</h1>
+
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Part Numarası</th>
+                <th>Miktar (Quantity)</th>
+                <th>DigiKey Fiyat</th>
+                <th>DigiKey Lead Time (gün)</th>
+                <th>Mouser Fiyat</th>
+                <th>Mouser Lead Time (gün)</th>
+                <th>En Uygun Fiyat</th>
+                <th>En Kısa Teslimat Süresi (gün)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% let missingParts = []; %> <!-- Eksik parçalar için bir liste -->
+            <% partDetails.forEach(function(part) { %>
+                <tr>
+                    <td><%= part.partNumber %></td>
+                    <td><%= part.quantity !== 'Quantity Bilgisi Yok' ? part.quantity : 'Miktar Bilgisi Yok' %></td>
+
+                    <!-- DigiKey Fiyat ve Lead Time -->
+                    <td class="price-column"><%= part.digikeyPrice !== 'N/A' ? part.digikeyPrice : 'Fiyat Bilinmiyor' %></td>
+                    <td class="leadtime-column"><%= part.leadTime !== 'N/A' ? `${part.leadTime} gün` : 'Lead Time Bilinmiyor' %></td>
+
+                    <!-- Mouser Fiyat ve Lead Time -->
+                    <td class="price-column"><%= part.mouserPrice !== 'N/A' ? part.mouserPrice : 'Fiyat Bilinmiyor' %></td>
+                    <td class="leadtime-column"><%= part.mouserLeadTime !== 'N/A' ? `${part.mouserLeadTime}` : 'Lead Time Bilinmiyor' %></td>
+
+                    <!-- En uygun fiyatı ve kaynağı bulma -->
+                    <td>
+                        <% 
+                        const digikeyPrice = parseFloat(part.digikeyPrice.replace('$', '')) || Infinity;
+                        const mouserPrice = parseFloat(part.mouserPrice.replace('$', '')) || Infinity;
+                        const bestPrice = Math.min(digikeyPrice, mouserPrice);
+
+                        let bestSource = '';
+                        if (bestPrice === digikeyPrice) {
+                            bestSource = 'DigiKey';
+                        } else if (bestPrice === mouserPrice) {
+                            bestSource = 'Mouser';
+                        } else {
+                            bestSource = 'Bilinmiyor';
+                        }
+
+                        if (bestPrice === Infinity) {
+                            missingParts.push(part.partNumber); // Eksik parçaları ekle
+                        }
+                        %>
+                        <% if (bestPrice !== Infinity) { %>
+                            <span class="bold">$<%= bestPrice %> (<%= bestSource %>)</span>
+                        <% } else { %>
+                            Fiyat Bilinmiyor
+                        <% } %>
+                    </td>
+
+                    <!-- En kısa teslimat süresi -->
+                    <td>
+                        <% 
+                        const digikeyLeadTime = parseInt(part.leadTime) || Infinity;
+                        const mouserLeadTime = parseInt(part.mouserLeadTime) || Infinity;
+                        const bestLeadTime = Math.min(digikeyLeadTime, mouserLeadTime);
+
+                        if (bestLeadTime !== Infinity) { %>
+                            <span class="bold"><%= bestLeadTime %> gün</span>
+                        <% } else { %>
+                            Lead Time Bilinmiyor
+                        <% } %>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+
+    <!-- Eksik Parçalar -->
+    <% if (missingParts.length > 0) { %>
+        <div class="missing-items">
+            <h3>Bilgi Bulunamayan Parçalar:</h3>
+            <p><%= missingParts.join(', ') %></p>
+        </div>
+    <% } %>
+
+    <!-- Toplam Maliyet ve En Kısa Teslimat Süresi -->
+    <div class="summary">
+        <% 
+        let totalCost = 0;
+        let shortestLeadTime = Infinity;
+
+        partDetails.forEach(function(part) {
+            const digikeyPrice = parseFloat(part.digikeyPrice.replace('$', '')) || Infinity;
+            const mouserPrice = parseFloat(part.mouserPrice.replace('$', '')) || Infinity;
+            const bestPrice = Math.min(digikeyPrice, mouserPrice);
+            const quantity = parseInt(part.quantity) || 0;
+
+            // Toplam maliyet hesaplama
+            if (bestPrice !== Infinity && quantity > 0) {
+                totalCost += bestPrice * quantity;
+            }
+
+            // En kısa teslimat süresini bulma
+            const digikeyLeadTime = parseInt(part.leadTime) || Infinity;
+            const mouserLeadTime = parseInt(part.mouserLeadTime) || Infinity;
+            const bestLeadTime = Math.min(digikeyLeadTime, mouserLeadTime);
+
+            if (bestLeadTime < shortestLeadTime) {
+                shortestLeadTime = bestLeadTime;
+            }
+        });
+        %>
+
+        <h3>Bu web sitesi sayesinde elde edilen toplam kar: $<%= totalSavings.toFixed(2) %></h3>
+        <h3>Toplam Maliyet: $<%= totalCost.toFixed(2) %></h3>
+        <h3>En Kısa Teslimat Süresi: 
+            <% if (shortestLeadTime !== Infinity) { %>
+                <%= shortestLeadTime %> gün
+            <% } else { %>
+                Lead Time Bilinmiyor
+            <% } %>
+        </h3>
+    </div>
+</div>
+
+
+<%- include('partials/footer') %>

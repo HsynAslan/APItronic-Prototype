@@ -1,0 +1,251 @@
+<%- include('partials/header') %>
+<%- include('partials/navbar') %>
+
+<style>
+    body {
+    height: 50% !important;
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    color: #333;
+    /* padding-bottom: 60px; */
+    padding-top: 60px;
+}
+.container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px;
+    height: 90vh;
+}
+
+.favorites-section, .watchlist-section {
+    width: 30%;
+    background-color: #f4f4f9;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    height: 70vh;
+    overflow-y: auto;
+}
+
+.details-section {
+    width: 35%;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    height: 70vh;
+    overflow-y: auto;
+}
+
+.item {
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+    cursor: pointer;
+}
+
+.item:hover {
+    background-color: #eaeaea;
+}
+
+.heart, .star {
+    margin-left: 10px;
+    cursor: pointer;
+    font-size: 20px;
+    transition: color 0.3s;
+}
+
+.heart:hover {
+    color: #ff4d4d;
+}
+
+.star:hover {
+    color: #ffd700;
+}
+#favorites-section {
+    background-color: #e8f4f9;
+    border: 2px solid #4fc3f7;
+}
+
+#watchlist-section {
+    background-color: #fce4ec;
+    border: 2px solid #f06292;
+}
+
+/* Favoriler Listesi Stili */
+#favorites-list li {
+    background-color: #ffffff;
+    border-left: 4px solid #4fc3f7;
+    padding: 10px;
+    margin-bottom: 8px;
+    transition: background-color 0.3s ease;
+}
+
+#favorites-list li:hover {
+    background-color: #f1f9fc;
+}
+
+/* Takip Listesi Stili */
+#watchlist-list li {
+    background-color: #ffffff;
+    border-left: 4px solid #f06292;
+    padding: 10px;
+    margin-bottom: 8px;
+    transition: background-color 0.3s ease;
+}
+
+#watchlist-list li:hover {
+    background-color: #fdeff3;
+}
+
+/* İkon Stili */
+#favorites-list i, #watchlist-list i {
+    margin-left: 8px;
+    font-size: 16px;
+    color: #e57373;
+}
+
+#favorites-list i:hover, #watchlist-list i:hover {
+    color: #d32f2f;
+}
+
+
+</style>
+
+<div class="container">
+    <div id="favorites-section" class="favorites-section col-md-4">
+        <h2>Favoriler</h2>
+        <ul id="favorites-list">
+            <% favoritePartNumbers.forEach(partNumber => { %>
+                <li id="favorite-item-<%= partNumber %>">
+                    <a href="#" onclick="showFavoriteDetails('<%= partNumber %>')"><%= partNumber %></a>
+                    <i class="fa-solid fa-trash" title="Favorilerden sil" onclick="confirmRemoveFavorite('<%= partNumber %>')"></i>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
+
+    <div id="product-details" class="details-section col-md-4">
+        <h2>Ürün Detayları</h2>
+    </div>
+    
+
+    <div id="watchlist-section" class="watchlist-section col-md-4">
+        <h2>Takip Edilenler</h2>
+        <ul id="watchlist-list">
+            <% watchlistPartNumbers.forEach(partNumber => { %>
+                <li id="watchlist-item-<%= partNumber %>">
+                    <a href="#" onclick="showWatchlistDetails('<%= partNumber %>')"><%= partNumber %></a>
+                    <i class="fa-solid fa-trash" title="Takipten sil" onclick="confirmRemoveWatchlist('<%= partNumber %>')"></i>
+                </li>
+            <% }) %>
+        </ul>
+    </div>
+</div>
+
+
+
+<script>
+
+     // Favorilerden kaldırma işlemi
+     function confirmRemoveFavorite(partNumber) {
+        if (confirm('Bu ürünü favorilerden silmek istediğinize emin misiniz?')) {
+            removeFavorite(partNumber);
+        }
+    }
+
+    function removeFavorite(partNumber) {
+        fetch('/delete-from-favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumber })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  location.reload();
+              } else {
+                  alert('Favorilerden silme işlemi başarısız.');
+              }
+          });
+    }
+
+    // Takip listesinden silme işlemi
+    function confirmRemoveWatchlist(partNumber) {
+        if (confirm('Bu ürünü takip listesinden silmek istediğinize emin misiniz?')) {
+            removeWatchlist(partNumber);
+        }
+    }
+
+    function removeWatchlist(partNumber) {
+        fetch('/delete-from-watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ partNumber })
+        }).then(response => response.json())
+          .then(data => {
+              if (data.success) {
+                  location.reload();
+              } else {
+                  alert('Takip listesinden silme işlemi başarısız.');
+              }
+          });
+    }
+    // Favori ürün detaylarını göster
+    function showFavoriteDetails(partNumber) {
+    fetch(`/get-favorite-details/${partNumber}`)
+        .then(response => response.json())
+        .then(data => {
+            displayProductDetails(data);
+        });
+}
+
+
+    
+
+    // Ürün detaylarını ekrana bas
+    function displayProductDetails(data) {
+    const detailsDiv = document.getElementById('product-details');
+    if (!detailsDiv) {
+        console.error("Element 'product-details' bulunamadı.");
+        return;
+    }
+    
+    detailsDiv.innerHTML = `
+        <h3>Ürün Detayları</h3>
+        <h4>DigiKey Verileri:</h4>
+        <p>Açıklama: ${data.digiKey.description}</p>
+        <p>Üretici: ${data.digiKey.manufacturer}</p>
+        <p>Stok: ${data.digiKey.quantityAvailable} in stock</p>
+        <p>Lead Time: ${data.digiKey.leadTime} gün</p>
+        <p>Fiyat: $${data.digiKey.unitPrice}</p>
+        <p>Ambalaj: ${data.digiKey.packaging}</p>
+        <a href="${data.digiKey.productURL}" target="_blank">DigiKey Ürün Sayfası</a>
+        <h4>Mouser Verileri:</h4>
+        <p>Açıklama: ${data.mouser.description}</p>
+        <p>Üretici: ${data.mouser.manufacturer}</p>
+        <p>Stok: ${data.mouser.quantityAvailable} in stock</p>
+        <p>Lead Time: ${data.mouser.leadTime}</p>
+        <p>Fiyat: $${data.mouser.unitPrice}</p>
+        <p>Ambalaj: ${data.mouser.packaging}</p>
+        <a href="${data.mouser.productURL}" target="_blank">Mouser Ürün Sayfası</a>
+    `;
+}
+
+// Takip edilen ürün detaylarını göster
+function showWatchlistDetails(partNumber) {
+        console.log("takip bastı");
+        fetch(`/get-watchlist-details?partNumber=${partNumber}`)
+            .then(response => response.json())
+            .then(data => {
+                displayProductDetails(data);
+            });
+    }
+
+</script>
+<script src="https://kit.fontawesome.com/d497048b92.js" crossorigin="anonymous"></script>
